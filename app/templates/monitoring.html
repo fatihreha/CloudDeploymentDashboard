@@ -1,0 +1,931 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - Cloud Deployment{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="bi bi-graph-up"></i>
+            System Monitoring
+            <span class="real-time-indicator" id="monitoring-real-time-indicator"></span>
+            <small class="text-muted">Real-time</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Real-time Stats Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            CPU Usage
+                        </div>
+                        <div class="row no-gutters align-items-center">
+                            <div class="col-auto">
+                                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="cpu-usage">0%</div>
+                            </div>
+                            <div class="col">
+                                <div class="progress progress-sm mr-2">
+                                    <div class="progress-bar bg-primary" role="progressbar" 
+                                         id="cpu-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-cpu fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Memory Usage
+                        </div>
+                        <div class="row no-gutters align-items-center">
+                            <div class="col-auto">
+                                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="memory-usage">0%</div>
+                            </div>
+                            <div class="col">
+                                <div class="progress progress-sm mr-2">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         id="memory-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-memory fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Disk Usage
+                        </div>
+                        <div class="row no-gutters align-items-center">
+                            <div class="col-auto">
+                                <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800" id="disk-usage">0%</div>
+                            </div>
+                            <div class="col">
+                                <div class="progress progress-sm mr-2">
+                                    <div class="progress-bar bg-info" role="progressbar" 
+                                         id="disk-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-hdd fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Network I/O
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="network-io">
+                            <small>↑ <span id="network-tx">0 KB/s</span></small><br>
+                            <small>↓ <span id="network-rx">0 KB/s</span></small>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-wifi fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- System Performance Chart -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    System Performance (Real-time)
+                </h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in">
+                        <a class="dropdown-item" href="#" onclick="toggleAutoRefresh()">
+                            <i class="bi bi-arrow-clockwise"></i> Toggle Auto-refresh
+                        </a>
+                        <a class="dropdown-item" href="#" onclick="exportChartData()">
+                            <i class="bi bi-download"></i> Export Data
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#" onclick="clearChartData()">
+                            <i class="bi bi-trash"></i> Clear Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="performance-chart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-info-circle"></i>
+                    System Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="system-info">
+                    <div class="mb-3">
+                        <strong>CPU Cores:</strong>
+                        <span id="cpu-cores" class="float-end">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Total Memory:</strong>
+                        <span id="total-memory" class="float-end">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Available Memory:</strong>
+                        <span id="available-memory" class="float-end">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Total Disk:</strong>
+                        <span id="total-disk" class="float-end">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Free Disk:</strong>
+                        <span id="free-disk" class="float-end">-</span>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <strong>Uptime:</strong>
+                        <span id="system-uptime" class="float-end">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Last Update:</strong>
+                        <span id="last-update" class="float-end">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container Monitoring -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-box"></i>
+                    Container Monitoring
+                </h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshContainers()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="containers-table">
+                        <thead>
+                            <tr>
+                                <th>Container ID</th>
+                                <th>Name</th>
+                                <th>Image</th>
+                                <th>Status</th>
+                                <th>CPU %</th>
+                                <th>Memory</th>
+                                <th>Network I/O</th>
+                                <th>Block I/O</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="containers-tbody">
+                            <tr>
+                                <td colspan="9" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading container information...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Log Streaming -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-terminal"></i>
+                    Real-time Log Streaming
+                </h6>
+                <div class="log-stream-controls">
+                    <button class="btn btn-sm btn-outline-success" onclick="startLogStreaming()">
+                        <i class="bi bi-play"></i> Start
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="stopLogStreaming()">
+                        <i class="bi bi-stop"></i> Stop
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+                        <i class="bi bi-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="log-stream-container">
+                    <div class="log-viewer" id="log-viewer" style="height: 300px; overflow-y: auto;">
+                        <div class="text-center text-muted">
+                            <i class="bi bi-terminal"></i>
+                            <p>Click "Start" to begin real-time log streaming</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts and Notifications -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    System Alerts
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="system-alerts">
+                    <div class="alert alert-success" role="alert">
+                        <i class="bi bi-check-circle"></i>
+                        All systems are operating normally.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-activity"></i>
+                    Performance Metrics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="performance-metrics">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 id="avg-cpu" class="text-primary">0%</h4>
+                                <p class="text-muted">Avg CPU (24h)</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 id="avg-memory" class="text-success">0%</h4>
+                                <p class="text-muted">Avg Memory (24h)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 id="peak-cpu" class="text-warning">0%</h4>
+                                <p class="text-muted">Peak CPU (24h)</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 id="peak-memory" class="text-danger">0%</h4>
+                                <p class="text-muted">Peak Memory (24h)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.progress-sm {
+    height: 0.5rem;
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.chart-area {
+    position: relative;
+    height: 300px;
+}
+
+#performance-chart {
+    width: 100% !important;
+    height: 100% !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let performanceChart = null;
+let monitoringSocket = null;
+let autoRefresh = true;
+let chartData = {
+    labels: [],
+    cpu: [],
+    memory: [],
+    disk: []
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize monitoring page
+    initializeMonitoring();
+    
+    // Initialize Socket.IO for real-time updates
+    initializeSocket();
+    
+    // Set up auto-refresh
+    setInterval(function() {
+        if (autoRefresh) {
+            refreshSystemStats();
+            refreshContainers();
+        }
+    }, 5000); // Refresh every 5 seconds
+});
+
+function initializeMonitoring() {
+    // Initialize performance chart
+    initializePerformanceChart();
+    
+    // Load initial data
+    refreshSystemStats();
+    refreshContainers();
+}
+
+function initializeSocket() {
+    if (typeof io !== 'undefined') {
+        monitoringSocket = io();
+        
+        monitoringSocket.on('system_stats', function(data) {
+            updateSystemStats(data);
+            updatePerformanceChart(data);
+        });
+        
+        monitoringSocket.on('container_stats', function(data) {
+            updateContainerStats(data);
+        });
+    }
+}
+
+function initializePerformanceChart() {
+    const ctx = document.getElementById('performance-chart').getContext('2d');
+    
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'CPU %',
+                    data: chartData.cpu,
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Memory %',
+                    data: chartData.memory,
+                    borderColor: '#1cc88a',
+                    backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Disk %',
+                    data: chartData.disk,
+                    borderColor: '#36b9cc',
+                    backgroundColor: 'rgba(54, 185, 204, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+}
+
+function refreshSystemStats() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(data => {
+            updateSystemStats(data);
+            updatePerformanceChart(data);
+        })
+        .catch(error => {
+            console.error('Error fetching system stats:', error);
+        });
+}
+
+function updateSystemStats(data) {
+    // Update progress bars and text
+    if (data.cpu) {
+        updateProgressIndicator('cpu', data.cpu.percent);
+        document.getElementById('cpu-cores').textContent = data.cpu.count || '-';
+    }
+    
+    if (data.memory) {
+        updateProgressIndicator('memory', data.memory.percent);
+        document.getElementById('total-memory').textContent = (data.memory.total_gb || 0).toFixed(1) + ' GB';
+        document.getElementById('available-memory').textContent = ((data.memory.total_gb || 0) - (data.memory.used_gb || 0)).toFixed(1) + ' GB';
+    }
+    
+    if (data.disk) {
+        updateProgressIndicator('disk', data.disk.percent);
+        document.getElementById('total-disk').textContent = (data.disk.total_gb || 0).toFixed(1) + ' GB';
+        document.getElementById('free-disk').textContent = ((data.disk.total_gb || 0) - (data.disk.used_gb || 0)).toFixed(1) + ' GB';
+    }
+    
+    if (data.network) {
+        document.getElementById('network-tx').textContent = formatBytes(data.network.bytes_sent || 0);
+        document.getElementById('network-rx').textContent = formatBytes(data.network.bytes_recv || 0);
+    }
+    
+    // Update system info
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+    
+    // Check for alerts
+    updateSystemAlerts(data);
+}
+
+function updateProgressIndicator(type, percentage) {
+    const usageElement = document.getElementById(`${type}-usage`);
+    const progressBar = document.getElementById(`${type}-progress-bar`);
+    
+    if (usageElement && progressBar) {
+        usageElement.textContent = percentage.toFixed(1) + '%';
+        progressBar.style.width = percentage + '%';
+        
+        // Update color based on percentage
+        progressBar.className = 'progress-bar';
+        if (percentage > 80) {
+            progressBar.classList.add('bg-danger');
+        } else if (percentage > 60) {
+            progressBar.classList.add('bg-warning');
+        } else {
+            progressBar.classList.add(type === 'cpu' ? 'bg-primary' : type === 'memory' ? 'bg-success' : 'bg-info');
+        }
+    }
+}
+
+function updatePerformanceChart(data) {
+    const now = new Date().toLocaleTimeString();
+    
+    // Add new data point
+    chartData.labels.push(now);
+    chartData.cpu.push(data.cpu ? data.cpu.percent : 0);
+    chartData.memory.push(data.memory ? data.memory.percent : 0);
+    chartData.disk.push(data.disk ? data.disk.percent : 0);
+    
+    // Keep only last 20 data points
+    if (chartData.labels.length > 20) {
+        chartData.labels.shift();
+        chartData.cpu.shift();
+        chartData.memory.shift();
+        chartData.disk.shift();
+    }
+    
+    // Update chart
+    if (performanceChart) {
+        performanceChart.update('none');
+    }
+    
+    // Update performance metrics
+    updatePerformanceMetrics();
+}
+
+function updatePerformanceMetrics() {
+    if (chartData.cpu.length > 0) {
+        const avgCpu = chartData.cpu.reduce((a, b) => a + b, 0) / chartData.cpu.length;
+        const peakCpu = Math.max(...chartData.cpu);
+        
+        document.getElementById('avg-cpu').textContent = avgCpu.toFixed(1) + '%';
+        document.getElementById('peak-cpu').textContent = peakCpu.toFixed(1) + '%';
+    }
+    
+    if (chartData.memory.length > 0) {
+        const avgMemory = chartData.memory.reduce((a, b) => a + b, 0) / chartData.memory.length;
+        const peakMemory = Math.max(...chartData.memory);
+        
+        document.getElementById('avg-memory').textContent = avgMemory.toFixed(1) + '%';
+        document.getElementById('peak-memory').textContent = peakMemory.toFixed(1) + '%';
+    }
+}
+
+function refreshContainers() {
+    fetch('/api/containers')
+        .then(response => response.json())
+        .then(data => {
+            updateContainersTable(data);
+        })
+        .catch(error => {
+            console.error('Error fetching container stats:', error);
+        });
+}
+
+function updateContainersTable(containers) {
+    const tbody = document.getElementById('containers-tbody');
+    
+    if (!containers || containers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center text-muted">
+                    No containers found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = containers.map(container => {
+        const statusBadge = getContainerStatusBadge(container.status);
+        
+        return `
+            <tr>
+                <td><code>${container.id ? container.id.substring(0, 12) : 'N/A'}</code></td>
+                <td>${container.name || 'N/A'}</td>
+                <td>${container.image || 'N/A'}</td>
+                <td>${statusBadge}</td>
+                <td>${container.cpu_percent ? container.cpu_percent.toFixed(1) + '%' : 'N/A'}</td>
+                <td>
+                    ${container.memory_usage || 'N/A'} / ${container.memory_limit || 'N/A'}
+                    ${container.memory_percent ? `(${container.memory_percent.toFixed(1)}%)` : ''}
+                </td>
+                <td>
+                    ↑ ${container.network_tx || 'N/A'}<br>
+                    ↓ ${container.network_rx || 'N/A'}
+                </td>
+                <td>
+                    R: ${container.block_read || 'N/A'}<br>
+                    W: ${container.block_write || 'N/A'}
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewContainerLogs('${container.id}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="restartContainer('${container.id}')">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Update active containers count
+    const activeContainers = containers.filter(c => c.status === 'running').length;
+    document.getElementById('active-containers').textContent = activeContainers;
+}
+
+function getContainerStatusBadge(status) {
+    const badges = {
+        'running': '<span class="badge bg-success">Running</span>',
+        'stopped': '<span class="badge bg-secondary">Stopped</span>',
+        'paused': '<span class="badge bg-warning">Paused</span>',
+        'exited': '<span class="badge bg-danger">Exited</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function updateSystemAlerts(data) {
+    const alertsContainer = document.getElementById('system-alerts');
+    let alerts = [];
+    
+    // Check for high resource usage
+    if (data.cpu && data.cpu.percent > 80) {
+        alerts.push({
+            type: 'warning',
+            icon: 'exclamation-triangle',
+            message: `High CPU usage detected: ${data.cpu.percent.toFixed(1)}%`
+        });
+    }
+    
+    if (data.memory && data.memory.percent > 85) {
+        alerts.push({
+            type: 'warning',
+            icon: 'exclamation-triangle',
+            message: `High memory usage detected: ${data.memory.percent.toFixed(1)}%`
+        });
+    }
+    
+    if (data.disk && data.disk.percent > 90) {
+        alerts.push({
+            type: 'danger',
+            icon: 'exclamation-triangle',
+            message: `Critical disk usage: ${data.disk.percent.toFixed(1)}%`
+        });
+    }
+    
+    if (alerts.length === 0) {
+        alertsContainer.innerHTML = `
+            <div class="alert alert-success" role="alert">
+                <i class="bi bi-check-circle"></i>
+                All systems are operating normally.
+            </div>
+        `;
+    } else {
+        alertsContainer.innerHTML = alerts.map(alert => `
+            <div class="alert alert-${alert.type}" role="alert">
+                <i class="bi bi-${alert.icon}"></i>
+                ${alert.message}
+            </div>
+        `).join('');
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    const status = autoRefresh ? 'enabled' : 'disabled';
+    alert(`Auto-refresh ${status}`);
+}
+
+function exportChartData() {
+    const data = {
+        labels: chartData.labels,
+        cpu: chartData.cpu,
+        memory: chartData.memory,
+        disk: chartData.disk,
+        timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `system-metrics-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function clearChartData() {
+    if (confirm('Are you sure you want to clear all chart data?')) {
+        chartData.labels = [];
+        chartData.cpu = [];
+        chartData.memory = [];
+        chartData.disk = [];
+        
+        if (performanceChart) {
+            performanceChart.update();
+        }
+    }
+}
+
+// Log streaming functions
+let logStreamingActive = false;
+
+function startLogStreaming() {
+    if (logStreamingActive) return;
+    
+    logStreamingActive = true;
+    const logViewer = document.getElementById('log-viewer');
+    
+    // Clear existing content
+    logViewer.innerHTML = '';
+    
+    // Add initial message
+    appendLogEntry('info', 'Starting real-time log streaming...');
+    
+    // Join log streaming room via Socket.IO
+    if (monitoringSocket) {
+        monitoringSocket.emit('join_log_room', 'system');
+        
+        // Listen for new log entries
+        monitoringSocket.on('new_log', function(data) {
+            appendLogEntry(data.level || 'info', data.message, data.timestamp);
+        });
+        
+        // Listen for deployment logs
+        monitoringSocket.on('deployment_logs', function(data) {
+            if (data.logs && Array.isArray(data.logs)) {
+                data.logs.forEach(log => {
+                    appendLogEntry(log.level || 'info', log.message, log.timestamp);
+                });
+            }
+        });
+    }
+    
+    // Start streaming via API
+    fetch('/api/logs/stream/start/system', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            appendLogEntry('success', 'Log streaming started successfully');
+        } else {
+            appendLogEntry('error', 'Failed to start log streaming: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error starting log streaming:', error);
+        appendLogEntry('error', 'Error starting log streaming: ' + error.message);
+    });
+}
+
+function stopLogStreaming() {
+    if (!logStreamingActive) return;
+    
+    logStreamingActive = false;
+    
+    // Leave log streaming room
+    if (monitoringSocket) {
+        monitoringSocket.emit('leave_log_room', 'system');
+        monitoringSocket.off('new_log');
+        monitoringSocket.off('deployment_logs');
+    }
+    
+    appendLogEntry('warning', 'Log streaming stopped');
+}
+
+function clearLogs() {
+    const logViewer = document.getElementById('log-viewer');
+    logViewer.innerHTML = '<div class="text-center text-muted"><i class="bi bi-terminal"></i><p>Logs cleared</p></div>';
+}
+
+function appendLogEntry(level, message, timestamp) {
+    const logViewer = document.getElementById('log-viewer');
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry ${level}`;
+    
+    const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+    
+    logEntry.innerHTML = `
+        <span class="log-timestamp">[${time}]</span>
+        <span class="log-level">[${level.toUpperCase()}]</span>
+        <span class="log-message">${message}</span>
+    `;
+    
+    logViewer.appendChild(logEntry);
+    
+    // Auto-scroll to bottom
+    logViewer.scrollTop = logViewer.scrollHeight;
+    
+    // Limit log entries to prevent memory issues
+    const maxEntries = 1000;
+    const entries = logViewer.querySelectorAll('.log-entry');
+    if (entries.length > maxEntries) {
+        for (let i = 0; i < entries.length - maxEntries; i++) {
+            entries[i].remove();
+        }
+    }
+}
+
+function viewContainerLogs(containerId) {
+    // Open container logs in a new window or modal
+    window.open(`/logs?container=${containerId}`, '_blank');
+}
+
+function restartContainer(containerId) {
+    if (confirm('Are you sure you want to restart this container?')) {
+        fetch(`/api/containers/${containerId}/restart`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Container restart initiated');
+                refreshContainers();
+            } else {
+                alert('Failed to restart container: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error restarting container:', error);
+            alert('Error restarting container');
+        });
+    }
+}
+</script>
+{% endblock %}
