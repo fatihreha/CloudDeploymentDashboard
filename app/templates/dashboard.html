@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Cloud Deployment{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="bi bi-speedometer2"></i>
+            Dashboard Overview
+            <span class="real-time-indicator" id="real-time-indicator"></span>
+            <small class="text-muted">Real-time</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total Deployments
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="total-deployments">
+                            Loading...
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-rocket-takeoff fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Success Rate
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="success-rate">
+                            Loading...
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Active Containers
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="active-containers">
+                            Loading...
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-box fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            System Health
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="system-health">
+                            <span class="badge bg-success">Healthy</span>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-heart-pulse fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- System Resources Chart -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-graph-up"></i>
+                    System Resources
+                </h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in">
+                        <a class="dropdown-item" href="#" onclick="refreshSystemStats()">Refresh</a>
+                        <a class="dropdown-item" href="#">Export Data</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h6 class="text-primary">CPU Usage</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-primary" role="progressbar" 
+                                     id="cpu-progress" style="width: 0%"></div>
+                            </div>
+                            <small id="cpu-text">0%</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h6 class="text-success">Memory Usage</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     id="memory-progress" style="width: 0%"></div>
+                            </div>
+                            <small id="memory-text">0%</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h6 class="text-warning">Disk Usage</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     id="disk-progress" style="width: 0%"></div>
+                            </div>
+                            <small id="disk-text">0%</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-clock-history"></i>
+                    Recent Activity
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="recent-activity">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading recent activity...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container Stats -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-box"></i>
+                    Container Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="container-stats-grid" id="container-stats-grid">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading container statistics...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Deployments -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-list-ul"></i>
+                    Recent Deployments
+                </h6>
+                <a href="{{ url_for('main.deployment') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i>
+                    New Deployment
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="deployments-table">
+                        <thead>
+                            <tr>
+                                <th>Job ID</th>
+                                <th>Action</th>
+                                <th>Image</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deployments-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading deployments...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Dashboard specific JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize dashboard
+    initializeDashboard();
+    
+    // Set up auto-refresh
+    setInterval(refreshDashboardData, 30000); // Refresh every 30 seconds
+});
+
+function initializeDashboard() {
+    refreshSystemStats();
+    refreshDeploymentMetrics();
+    refreshRecentActivity();
+}
+
+function refreshSystemStats() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.cpu) {
+                updateProgressBar('cpu', data.cpu.percent);
+            }
+            if (data.memory) {
+                updateProgressBar('memory', data.memory.percent);
+            }
+            if (data.disk) {
+                updateProgressBar('disk', data.disk.percent);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching system stats:', error);
+        });
+}
+
+function refreshDeploymentMetrics() {
+    fetch('/api/deployment-metrics')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-deployments').textContent = data.total_deployments || 0;
+            document.getElementById('success-rate').textContent = (data.success_rate || 0) + '%';
+            
+            // Update recent deployments table
+            updateDeploymentsTable(data.recent_deployments || []);
+        })
+        .catch(error => {
+            console.error('Error fetching deployment metrics:', error);
+            document.getElementById('total-deployments').textContent = 'Error';
+            document.getElementById('success-rate').textContent = 'Error';
+        });
+}
+
+function refreshRecentActivity() {
+    // Simulate recent activity
+    const activities = [
+        { time: '2 minutes ago', action: 'Container started', status: 'success' },
+        { time: '5 minutes ago', action: 'Health check passed', status: 'success' },
+        { time: '10 minutes ago', action: 'Deployment completed', status: 'success' },
+        { time: '15 minutes ago', action: 'Build started', status: 'info' }
+    ];
+    
+    const activityHtml = activities.map(activity => `
+        <div class="d-flex align-items-center mb-2">
+            <div class="flex-shrink-0">
+                <i class="bi bi-${activity.status === 'success' ? 'check-circle text-success' : 'info-circle text-info'}"></i>
+            </div>
+            <div class="flex-grow-1 ms-3">
+                <div class="small">${activity.action}</div>
+                <div class="text-muted small">${activity.time}</div>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('recent-activity').innerHTML = activityHtml;
+}
+
+function updateProgressBar(type, percentage) {
+    const progressBar = document.getElementById(`${type}-progress`);
+    const progressText = document.getElementById(`${type}-text`);
+    
+    if (progressBar && progressText) {
+        progressBar.style.width = percentage + '%';
+        progressText.textContent = percentage.toFixed(1) + '%';
+        
+        // Update color based on percentage
+        progressBar.className = 'progress-bar';
+        if (percentage > 80) {
+            progressBar.classList.add('bg-danger');
+        } else if (percentage > 60) {
+            progressBar.classList.add('bg-warning');
+        } else {
+            progressBar.classList.add(type === 'cpu' ? 'bg-primary' : type === 'memory' ? 'bg-success' : 'bg-warning');
+        }
+    }
+}
+
+function updateDeploymentsTable(deployments) {
+    const tbody = document.getElementById('deployments-tbody');
+    
+    if (deployments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No deployments found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = deployments.map(deployment => {
+        const statusBadge = getStatusBadge(deployment.status);
+        const duration = calculateDuration(deployment.start_time, deployment.end_time);
+        
+        return `
+            <tr>
+                <td><code>${deployment.job_id ? deployment.job_id.substring(0, 8) : 'N/A'}</code></td>
+                <td><span class="badge bg-secondary">${deployment.action || 'N/A'}</span></td>
+                <td>${deployment.image_name || 'N/A'}</td>
+                <td>${statusBadge}</td>
+                <td>${formatDateTime(deployment.start_time)}</td>
+                <td>${duration}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewDeploymentLogs('${deployment.job_id}')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'completed': '<span class="badge bg-success">Completed</span>',
+        'running': '<span class="badge bg-primary">Running</span>',
+        'failed': '<span class="badge bg-danger">Failed</span>',
+        'pending': '<span class="badge bg-warning">Pending</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function calculateDuration(startTime, endTime) {
+    if (!startTime) return 'N/A';
+    
+    const start = new Date(startTime);
+    const end = endTime ? new Date(endTime) : new Date();
+    const duration = Math.round((end - start) / 1000); // seconds
+    
+    if (duration < 60) return `${duration}s`;
+    if (duration < 3600) return `${Math.round(duration / 60)}m`;
+    return `${Math.round(duration / 3600)}h`;
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return date.toLocaleString();
+}
+
+function viewDeploymentLogs(jobId) {
+    // Redirect to deployment page with job ID
+    window.location.href = `/deployment?job_id=${jobId}`;
+}
+
+function refreshDashboardData() {
+    refreshSystemStats();
+    refreshDeploymentMetrics();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,713 @@
+{% extends "base.html" %}
+
+{% block title %}Health Check - Cloud Deployment{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="bi bi-heart-pulse"></i>
+            System Health Check
+        </h1>
+    </div>
+</div>
+
+<!-- Overall Health Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow border-left-success" id="overall-health-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Overall System Health
+                        </div>
+                        <div class="h4 mb-0 font-weight-bold text-gray-800" id="overall-status">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <span id="overall-status-text">Healthy</span>
+                        </div>
+                        <div class="text-muted small mt-2" id="last-check-time">
+                            Last checked: Loading...
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-success btn-lg" onclick="runHealthCheck()" id="health-check-btn">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            Run Health Check
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Check Categories -->
+<div class="row mb-4">
+    <!-- System Health -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100" id="system-health-card">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-cpu"></i>
+                    System Health
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="system-health-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Checking system health...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Health -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100" id="container-health-card">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-box"></i>
+                    Container Health
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="container-health-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Checking containers...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Health -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100" id="application-health-card">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-globe"></i>
+                    Application Health
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="application-health-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Checking applications...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Check History -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-clock-history"></i>
+                    Health Check History
+                </h6>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshHistory()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Refresh
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportHealthData()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="health-history-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Overall Status</th>
+                                <th>System</th>
+                                <th>Containers</th>
+                                <th>Applications</th>
+                                <th>Issues Found</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="health-history-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading health check history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Metrics -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-graph-up"></i>
+                    Health Trends (Last 24 Hours)
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="health-trend-chart" width="100%" height="50"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-shield-check"></i>
+                    Health Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h3 id="uptime-percentage" class="text-success">99.9%</h3>
+                            <p class="text-muted">Uptime (30 days)</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h3 id="avg-response-time" class="text-info">45ms</h3>
+                            <p class="text-muted">Avg Response Time</p>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h3 id="total-checks" class="text-primary">1,247</h3>
+                            <p class="text-muted">Total Checks</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <h3 id="failed-checks" class="text-warning">3</h3>
+                            <p class="text-muted">Failed Checks</p>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <h5 class="text-muted">Next Scheduled Check</h5>
+                    <p id="next-check-time" class="h6">In 4 minutes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Check Details Modal -->
+<div class="modal fade" id="healthDetailsModal" tabindex="-1" aria-labelledby="healthDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="healthDetailsModalLabel">
+                    <i class="bi bi-info-circle"></i>
+                    Health Check Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="health-details-content">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="runHealthCheck()">Run New Check</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+
+.health-check-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.health-check-item:last-child {
+    border-bottom: none;
+}
+
+.chart-area {
+    position: relative;
+    height: 200px;
+}
+
+#health-trend-chart {
+    width: 100% !important;
+    height: 100% !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let healthTrendChart = null;
+let healthSocket = null;
+let autoHealthCheck = true;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize health check page
+    initializeHealthCheck();
+    
+    // Initialize Socket.IO for real-time updates
+    initializeSocket();
+    
+    // Set up auto health check (every 5 minutes)
+    setInterval(function() {
+        if (autoHealthCheck) {
+            runHealthCheck();
+        }
+    }, 300000); // 5 minutes
+    
+    // Run initial health check
+    runHealthCheck();
+});
+
+function initializeHealthCheck() {
+    // Initialize health trend chart
+    initializeHealthTrendChart();
+    
+    // Load health check history
+    refreshHistory();
+}
+
+function initializeSocket() {
+    if (typeof io !== 'undefined') {
+        healthSocket = io();
+        
+        healthSocket.on('health_update', function(data) {
+            updateHealthStatus(data);
+        });
+    }
+}
+
+function initializeHealthTrendChart() {
+    const ctx = document.getElementById('health-trend-chart').getContext('2d');
+    
+    // Generate sample data for the last 24 hours
+    const labels = [];
+    const healthData = [];
+    const now = new Date();
+    
+    for (let i = 23; i >= 0; i--) {
+        const time = new Date(now.getTime() - (i * 60 * 60 * 1000));
+        labels.push(time.getHours() + ':00');
+        healthData.push(Math.random() > 0.1 ? 100 : Math.random() * 50); // 90% healthy
+    }
+    
+    healthTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Health Score',
+                data: healthData,
+                borderColor: '#1cc88a',
+                backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Health Score: ' + context.parsed.y.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function runHealthCheck() {
+    const healthCheckBtn = document.getElementById('health-check-btn');
+    healthCheckBtn.disabled = true;
+    healthCheckBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
+    
+    // Show loading states
+    showLoadingStates();
+    
+    fetch('/api/health-check', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        updateHealthStatus(data);
+        updateLastCheckTime();
+    })
+    .catch(error => {
+        console.error('Error running health check:', error);
+        showHealthCheckError(error.message);
+    })
+    .finally(() => {
+        healthCheckBtn.disabled = false;
+        healthCheckBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Run Health Check';
+    });
+}
+
+function showLoadingStates() {
+    const loadingHtml = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Checking...</p>
+        </div>
+    `;
+    
+    document.getElementById('system-health-content').innerHTML = loadingHtml;
+    document.getElementById('container-health-content').innerHTML = loadingHtml;
+    document.getElementById('application-health-content').innerHTML = loadingHtml;
+}
+
+function updateHealthStatus(data) {
+    // Update overall status
+    updateOverallStatus(data.overall_status);
+    
+    // Update individual health checks
+    if (data.checks) {
+        updateSystemHealth(data.checks.system);
+        updateContainerHealth(data.checks.containers);
+        updateApplicationHealth(data.checks.application);
+    }
+    
+    // Refresh history
+    setTimeout(refreshHistory, 1000);
+}
+
+function updateOverallStatus(status) {
+    const overallCard = document.getElementById('overall-health-card');
+    const statusElement = document.getElementById('overall-status');
+    const statusText = document.getElementById('overall-status-text');
+    
+    // Remove existing border classes
+    overallCard.className = overallCard.className.replace(/border-left-\w+/g, '');
+    
+    switch (status) {
+        case 'healthy':
+            overallCard.classList.add('border-left-success');
+            statusElement.innerHTML = '<i class="bi bi-check-circle text-success"></i>';
+            statusText.textContent = 'Healthy';
+            statusText.className = 'text-success';
+            break;
+        case 'warning':
+            overallCard.classList.add('border-left-warning');
+            statusElement.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i>';
+            statusText.textContent = 'Warning';
+            statusText.className = 'text-warning';
+            break;
+        case 'critical':
+            overallCard.classList.add('border-left-danger');
+            statusElement.innerHTML = '<i class="bi bi-x-circle text-danger"></i>';
+            statusText.textContent = 'Critical';
+            statusText.className = 'text-danger';
+            break;
+    }
+}
+
+function updateSystemHealth(systemHealth) {
+    const content = document.getElementById('system-health-content');
+    
+    if (!systemHealth) {
+        content.innerHTML = '<p class="text-muted">No system health data available</p>';
+        return;
+    }
+    
+    const statusIcon = getStatusIcon(systemHealth.status);
+    const statusBadge = getStatusBadge(systemHealth.status);
+    
+    content.innerHTML = `
+        <div class="text-center mb-3">
+            ${statusIcon}
+            ${statusBadge}
+        </div>
+        <div class="health-check-item">
+            <span>CPU Usage</span>
+            <span>${systemHealth.cpu_ok ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+        <div class="health-check-item">
+            <span>Memory Usage</span>
+            <span>${systemHealth.memory_ok ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+        <div class="health-check-item">
+            <span>Disk Space</span>
+            <span>${systemHealth.disk_ok ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+    `;
+}
+
+function updateContainerHealth(containerHealth) {
+    const content = document.getElementById('container-health-content');
+    
+    if (!containerHealth) {
+        content.innerHTML = '<p class="text-muted">No container health data available</p>';
+        return;
+    }
+    
+    const statusIcon = getStatusIcon(containerHealth.status);
+    const statusBadge = getStatusBadge(containerHealth.status);
+    
+    content.innerHTML = `
+        <div class="text-center mb-3">
+            ${statusIcon}
+            ${statusBadge}
+        </div>
+        <div class="health-check-item">
+            <span>Total Containers</span>
+            <span class="badge bg-info">${containerHealth.total_containers || 0}</span>
+        </div>
+        <div class="health-check-item">
+            <span>Running Containers</span>
+            <span class="badge bg-success">${containerHealth.running_containers || 0}</span>
+        </div>
+        <div class="health-check-item">
+            <span>Container Status</span>
+            <span>${containerHealth.running_containers > 0 ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+    `;
+}
+
+function updateApplicationHealth(applicationHealth) {
+    const content = document.getElementById('application-health-content');
+    
+    if (!applicationHealth) {
+        content.innerHTML = '<p class="text-muted">No application health data available</p>';
+        return;
+    }
+    
+    const statusIcon = getStatusIcon(applicationHealth.status);
+    const statusBadge = getStatusBadge(applicationHealth.status);
+    
+    content.innerHTML = `
+        <div class="text-center mb-3">
+            ${statusIcon}
+            ${statusBadge}
+        </div>
+        <div class="health-check-item">
+            <span>Web Server</span>
+            <span>${applicationHealth.web_server === 'running' ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+        <div class="health-check-item">
+            <span>Database</span>
+            <span>${applicationHealth.database === 'connected' ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+        <div class="health-check-item">
+            <span>API Endpoints</span>
+            <span>${applicationHealth.api_endpoints === 'responsive' ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-danger"></i>'}</span>
+        </div>
+    `;
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        'healthy': '<i class="bi bi-check-circle text-success fa-3x"></i>',
+        'warning': '<i class="bi bi-exclamation-triangle text-warning fa-3x"></i>',
+        'critical': '<i class="bi bi-x-circle text-danger fa-3x"></i>'
+    };
+    return icons[status] || '<i class="bi bi-question-circle text-secondary fa-3x"></i>';
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'healthy': '<span class="badge bg-success">Healthy</span>',
+        'warning': '<span class="badge bg-warning">Warning</span>',
+        'critical': '<span class="badge bg-danger">Critical</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function updateLastCheckTime() {
+    const now = new Date();
+    document.getElementById('last-check-time').textContent = `Last checked: ${now.toLocaleString()}`;
+}
+
+function refreshHistory() {
+    // Simulate health check history
+    const history = [
+        {
+            timestamp: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+            overall_status: 'healthy',
+            system_status: 'healthy',
+            container_status: 'healthy',
+            application_status: 'healthy',
+            issues: 0
+        },
+        {
+            timestamp: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
+            overall_status: 'warning',
+            system_status: 'warning',
+            container_status: 'healthy',
+            application_status: 'healthy',
+            issues: 1
+        },
+        {
+            timestamp: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
+            overall_status: 'healthy',
+            system_status: 'healthy',
+            container_status: 'healthy',
+            application_status: 'healthy',
+            issues: 0
+        }
+    ];
+    
+    updateHistoryTable(history);
+}
+
+function updateHistoryTable(history) {
+    const tbody = document.getElementById('health-history-tbody');
+    
+    if (history.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No health check history available
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = history.map(check => `
+        <tr>
+            <td>${formatDateTime(check.timestamp)}</td>
+            <td>${getStatusBadge(check.overall_status)}</td>
+            <td>${getStatusBadge(check.system_status)}</td>
+            <td>${getStatusBadge(check.container_status)}</td>
+            <td>${getStatusBadge(check.application_status)}</td>
+            <td>
+                ${check.issues > 0 ? 
+                    `<span class="badge bg-warning">${check.issues} issue${check.issues > 1 ? 's' : ''}</span>` : 
+                    '<span class="badge bg-success">None</span>'
+                }
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewHealthDetails('${check.timestamp}')">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+}
+
+function viewHealthDetails(timestamp) {
+    // Show health check details in modal
+    const modal = new bootstrap.Modal(document.getElementById('healthDetailsModal'));
+    
+    document.getElementById('health-details-content').innerHTML = `
+        <h6>Health Check Details for ${formatDateTime(timestamp)}</h6>
+        <p>Detailed health check information would be displayed here.</p>
+    `;
+    
+    modal.show();
+}
+
+function showHealthCheckError(error) {
+    const errorHtml = `
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            Error running health check: ${error}
+        </div>
+    `;
+    
+    document.getElementById('system-health-content').innerHTML = errorHtml;
+    document.getElementById('container-health-content').innerHTML = errorHtml;
+    document.getElementById('application-health-content').innerHTML = errorHtml;
+}
+
+function exportHealthData() {
+    // Export health check data
+    const data = {
+        timestamp: new Date().toISOString(),
+        health_checks: 'Health check data would be exported here'
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `health-check-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

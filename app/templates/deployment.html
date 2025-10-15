@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Deployment - Cloud Deployment{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="bi bi-rocket-takeoff"></i>
+            Deployment Management
+        </h1>
+    </div>
+</div>
+
+<!-- Deployment Form -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-plus-circle"></i>
+                    New Deployment
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="deployment-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="action" class="form-label">Action</label>
+                            <select class="form-select" id="action" name="action" required>
+                                <option value="">Select Action</option>
+                                <option value="build">Build Image</option>
+                                <option value="run">Run Container</option>
+                                <option value="restart">Restart Container</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="image_name" class="form-label">Image Name</label>
+                            <input type="text" class="form-control" id="image_name" name="image_name" 
+                                   placeholder="e.g., my-app:latest" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="environment" class="form-label">Environment</label>
+                            <select class="form-select" id="environment" name="environment">
+                                <option value="development">Development</option>
+                                <option value="staging">Staging</option>
+                                <option value="production">Production</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="port" class="form-label">Port Mapping</label>
+                            <input type="text" class="form-control" id="port" name="port" 
+                                   placeholder="e.g., 8080:80" value="8080:80">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="env_vars" class="form-label">Environment Variables</label>
+                        <textarea class="form-control" id="env_vars" name="env_vars" rows="3" 
+                                  placeholder="KEY1=value1&#10;KEY2=value2"></textarea>
+                        <div class="form-text">One environment variable per line in KEY=value format</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary me-md-2" onclick="resetForm()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            Reset
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="deploy-btn">
+                            <i class="bi bi-rocket-takeoff"></i>
+                            Start Deployment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="col-lg-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-lightning"></i>
+                    Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="quickDeploy('build', 'my-app:latest')">
+                        <i class="bi bi-hammer"></i>
+                        Quick Build
+                    </button>
+                    <button class="btn btn-outline-success" onclick="quickDeploy('run', 'my-app:latest')">
+                        <i class="bi bi-play"></i>
+                        Quick Run
+                    </button>
+                    <button class="btn btn-outline-warning" onclick="quickDeploy('restart', 'my-app:latest')">
+                        <i class="bi bi-arrow-repeat"></i>
+                        Quick Restart
+                    </button>
+                </div>
+                
+                <hr>
+                
+                <h6 class="text-muted">Recent Images</h6>
+                <div id="recent-images">
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action" onclick="setImageName('my-app:latest')">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">my-app:latest</h6>
+                                <small>2 hours ago</small>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" onclick="setImageName('web-server:v1.2')">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">web-server:v1.2</h6>
+                                <small>1 day ago</small>
+                            </div>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" onclick="setImageName('api-service:dev')">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">api-service:dev</h6>
+                                <small>3 days ago</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Deployment Status -->
+<div class="row mb-4" id="current-deployment" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow border-left-primary">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-activity"></i>
+                    Current Deployment
+                </h6>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleLogs()">
+                    <i class="bi bi-eye"></i>
+                    Toggle Logs
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Job ID:</strong>
+                        <div id="current-job-id" class="text-muted">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Action:</strong>
+                        <div id="current-action" class="text-muted">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Image:</strong>
+                        <div id="current-image" class="text-muted">-</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Status:</strong>
+                        <div id="current-status" class="text-muted">-</div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="mt-3">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" id="deployment-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Logs -->
+                <div class="mt-3" id="deployment-logs" style="display: none;">
+                    <h6>Deployment Logs:</h6>
+                    <div class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto;">
+                        <pre id="logs-content">Waiting for deployment to start...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deployment History -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-clock-history"></i>
+                    Deployment History
+                </h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshHistory()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Job ID</th>
+                                <th>Action</th>
+                                <th>Image</th>
+                                <th>Environment</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="8" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading deployment history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentJobId = null;
+let deploymentSocket = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize deployment page
+    initializeDeploymentPage();
+    
+    // Set up form submission
+    document.getElementById('deployment-form').addEventListener('submit', handleDeploymentSubmit);
+    
+    // Initialize Socket.IO for real-time updates
+    initializeSocket();
+    
+    // Load deployment history
+    refreshHistory();
+});
+
+function initializeDeploymentPage() {
+    // Check if there's a job_id in URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const jobId = urlParams.get('job_id');
+    
+    if (jobId) {
+        // Load specific deployment details
+        loadDeploymentDetails(jobId);
+    }
+}
+
+function initializeSocket() {
+    if (typeof io !== 'undefined') {
+        deploymentSocket = io();
+        
+        deploymentSocket.on('deployment_update', function(data) {
+            updateDeploymentStatus(data);
+        });
+        
+        deploymentSocket.on('deployment_log', function(data) {
+            appendDeploymentLog(data);
+        });
+    }
+}
+
+function handleDeploymentSubmit(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const deploymentData = {
+        action: formData.get('action'),
+        image_name: formData.get('image_name'),
+        environment: formData.get('environment'),
+        port: formData.get('port'),
+        env_vars: formData.get('env_vars')
+    };
+    
+    startDeployment(deploymentData);
+}
+
+function startDeployment(deploymentData) {
+    const deployBtn = document.getElementById('deploy-btn');
+    deployBtn.disabled = true;
+    deployBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Starting...';
+    
+    fetch('/api/deploy', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deploymentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentJobId = data.job_id;
+            showCurrentDeployment(data);
+            
+            // Join the deployment room for real-time updates
+            if (deploymentSocket) {
+                deploymentSocket.emit('join_deployment', {job_id: data.job_id});
+            }
+        } else {
+            throw new Error(data.error || 'Deployment failed');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting deployment:', error);
+        alert('Error starting deployment: ' + error.message);
+    })
+    .finally(() => {
+        deployBtn.disabled = false;
+        deployBtn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> Start Deployment';
+    });
+}
+
+function quickDeploy(action, imageName) {
+    const deploymentData = {
+        action: action,
+        image_name: imageName,
+        environment: 'development',
+        port: '8080:80',
+        env_vars: ''
+    };
+    
+    startDeployment(deploymentData);
+}
+
+function showCurrentDeployment(deploymentData) {
+    document.getElementById('current-deployment').style.display = 'block';
+    document.getElementById('current-job-id').textContent = deploymentData.job_id.substring(0, 8);
+    document.getElementById('current-action').innerHTML = `<span class="badge bg-secondary">${deploymentData.action}</span>`;
+    document.getElementById('current-image').textContent = deploymentData.image_name;
+    document.getElementById('current-status').innerHTML = '<span class="badge bg-primary">Running</span>';
+    
+    // Reset progress and logs
+    document.getElementById('deployment-progress').style.width = '10%';
+    document.getElementById('logs-content').textContent = 'Deployment started...\n';
+}
+
+function updateDeploymentStatus(data) {
+    if (data.job_id !== currentJobId) return;
+    
+    const statusElement = document.getElementById('current-status');
+    const progressElement = document.getElementById('deployment-progress');
+    
+    switch (data.status) {
+        case 'running':
+            statusElement.innerHTML = '<span class="badge bg-primary">Running</span>';
+            progressElement.style.width = '50%';
+            break;
+        case 'completed':
+            statusElement.innerHTML = '<span class="badge bg-success">Completed</span>';
+            progressElement.style.width = '100%';
+            progressElement.classList.remove('progress-bar-animated');
+            break;
+        case 'failed':
+            statusElement.innerHTML = '<span class="badge bg-danger">Failed</span>';
+            progressElement.classList.remove('progress-bar-animated');
+            progressElement.classList.add('bg-danger');
+            break;
+    }
+    
+    // Refresh history when deployment completes
+    if (data.status === 'completed' || data.status === 'failed') {
+        setTimeout(refreshHistory, 1000);
+    }
+}
+
+function appendDeploymentLog(data) {
+    if (data.job_id !== currentJobId) return;
+    
+    const logsContent = document.getElementById('logs-content');
+    const timestamp = new Date(data.timestamp).toLocaleTimeString();
+    logsContent.textContent += `[${timestamp}] ${data.message}\n`;
+    
+    // Auto-scroll to bottom
+    logsContent.scrollTop = logsContent.scrollHeight;
+}
+
+function toggleLogs() {
+    const logsElement = document.getElementById('deployment-logs');
+    logsElement.style.display = logsElement.style.display === 'none' ? 'block' : 'none';
+}
+
+function refreshHistory() {
+    fetch('/api/deployment-metrics')
+        .then(response => response.json())
+        .then(data => {
+            updateHistoryTable(data.recent_deployments || []);
+        })
+        .catch(error => {
+            console.error('Error fetching deployment history:', error);
+        });
+}
+
+function updateHistoryTable(deployments) {
+    const tbody = document.getElementById('history-tbody');
+    
+    if (deployments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted">
+                    No deployments found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = deployments.map(deployment => {
+        const statusBadge = getStatusBadge(deployment.status);
+        const duration = calculateDuration(deployment.start_time, deployment.end_time);
+        
+        return `
+            <tr>
+                <td><code>${deployment.job_id ? deployment.job_id.substring(0, 8) : 'N/A'}</code></td>
+                <td><span class="badge bg-secondary">${deployment.action || 'N/A'}</span></td>
+                <td>${deployment.image_name || 'N/A'}</td>
+                <td><span class="badge bg-info">development</span></td>
+                <td>${statusBadge}</td>
+                <td>${formatDateTime(deployment.start_time)}</td>
+                <td>${duration}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewDeploymentLogs('${deployment.job_id}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="redeployJob('${deployment.job_id}')">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'completed': '<span class="badge bg-success">Completed</span>',
+        'running': '<span class="badge bg-primary">Running</span>',
+        'failed': '<span class="badge bg-danger">Failed</span>',
+        'pending': '<span class="badge bg-warning">Pending</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function calculateDuration(startTime, endTime) {
+    if (!startTime) return 'N/A';
+    
+    const start = new Date(startTime);
+    const end = endTime ? new Date(endTime) : new Date();
+    const duration = Math.round((end - start) / 1000); // seconds
+    
+    if (duration < 60) return `${duration}s`;
+    if (duration < 3600) return `${Math.round(duration / 60)}m`;
+    return `${Math.round(duration / 3600)}h`;
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return date.toLocaleString();
+}
+
+function viewDeploymentLogs(jobId) {
+    // Load deployment details and show logs
+    loadDeploymentDetails(jobId);
+}
+
+function loadDeploymentDetails(jobId) {
+    fetch(`/api/deployment-status/${jobId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.job_id) {
+                currentJobId = jobId;
+                showCurrentDeployment(data);
+                
+                // Show logs if available
+                if (data.logs && data.logs.length > 0) {
+                    document.getElementById('deployment-logs').style.display = 'block';
+                    const logsContent = document.getElementById('logs-content');
+                    logsContent.textContent = data.logs.map(log => 
+                        `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.message}`
+                    ).join('\n');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading deployment details:', error);
+        });
+}
+
+function redeployJob(jobId) {
+    if (confirm('Are you sure you want to redeploy this job?')) {
+        // Load the original deployment data and restart
+        loadDeploymentDetails(jobId);
+    }
+}
+
+function setImageName(imageName) {
+    document.getElementById('image_name').value = imageName;
+}
+
+function resetForm() {
+    document.getElementById('deployment-form').reset();
+}
+</script>
+{% endblock %}
