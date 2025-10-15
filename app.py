@@ -5,8 +5,12 @@ Main Flask Application Entry Point
 
 import os
 import logging
+from dotenv import load_dotenv
 from app import create_app
 from app.services.realtime_service import init_realtime_service
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -34,4 +38,4 @@ if __name__ == '__main__':
     logger.info("Real-time monitoring enabled")
     
     # Run the application
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

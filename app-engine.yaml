@@ -1,0 +1,42 @@
+runtime: python39
+
+# Google App Engine configuration for Flask app
+# Alternative to Cloud Run deployment
+
+env_variables:
+  SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+  SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+  FLASK_ENV: production
+
+# Instance configuration
+instance_class: F1
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Health check configuration
+readiness_check:
+  path: "/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 4
+  success_threshold: 2
+
+# Static files (if any)
+handlers:
+- url: /static
+  static_dir: app/static
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always

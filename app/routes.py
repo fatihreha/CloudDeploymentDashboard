@@ -5,7 +5,9 @@ Main routes and API endpoints
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, Response
 from app.services.deployment_service import DeploymentService
 from app.services.monitoring_service import MonitoringService
+print("MonitoringService imported in routes.py!")
 from app.services.health_service import HealthService
+from app.services.database_service import DatabaseService
 import uuid
 import json
 import os
@@ -24,6 +26,7 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 deployment_service = DeploymentService()
 monitoring_service = MonitoringService()
 health_service = HealthService()
+database_service = DatabaseService()
 
 # Main routes
 @main_bp.route('/')
@@ -66,7 +69,6 @@ def deploy():
         
         # Start deployment
         result = deployment_service.deploy(
-            job_id=job_id,
             action=action,
             image_name=image_name,
             environment=environment,
@@ -94,25 +96,33 @@ def deploy():
 def status():
     """Get system status and metrics"""
     try:
-        # Get system stats
+        # Get real system stats
         system_stats = monitoring_service.get_system_stats()
         
-        # Get deployment metrics
-        deployment_metrics = monitoring_service.get_deployment_metrics()
+        # Get deployment metrics from database
+        deployment_metrics = database_service.get_deployment_metrics()
+        
+        # Get container stats
+        container_stats = monitoring_service.get_container_stats()
         
         return jsonify({
-            'cpu_usage': system_stats.get('cpu_percent', 0),
-            'memory_usage': system_stats.get('memory_percent', 0),
-            'disk_usage': system_stats.get('disk_percent', 0),
-            'network_io': system_stats.get('network_io', {}),
+            'cpu_usage': system_stats.get('cpu', {}).get('percent', 0),
+            'memory_usage': system_stats.get('memory', {}).get('percent', 0),
+            'disk_usage': system_stats.get('disk', {}).get('percent', 0),
+            'network_io': system_stats.get('network', {}),
             'total_deployments': deployment_metrics.get('total_deployments', 0),
+            'successful_deployments': deployment_metrics.get('successful_deployments', 0),
+            'failed_deployments': deployment_metrics.get('failed_deployments', 0),
+            'running_deployments': deployment_metrics.get('running_deployments', 0),
+            'pending_deployments': deployment_metrics.get('pending_deployments', 0),
             'success_rate': deployment_metrics.get('success_rate', 0),
-            'active_containers': len(monitoring_service.get_container_stats()),
-            'system_health': 'healthy' if system_stats.get('cpu_percent', 0) < 80 else 'warning',
+            'active_containers': len(container_stats),
+            'system_health': 'healthy' if system_stats.get('cpu', {}).get('percent', 0) < 80 else 'warning',
             'timestamp': system_stats.get('timestamp')
         })
         
     except Exception as e:
+        logger.error(f"Error in /api/status: {e}")
         return jsonify({
             'error': str(e)
         }), 500
@@ -184,11 +194,18 @@ def deployment_status(job_id):
 def deployment_metrics():
     """Get deployment metrics for dashboard"""
     try:
-        metrics = monitoring_service.get_deployment_metrics()
+        # Get metrics from database
+        metrics = database_service.get_deployment_metrics()
+        
+        # Add recent deployments
+        recent_deployments = database_service.get_deployments(limit=5)
+        metrics['recent_deployments'] = recent_deployments
+        metrics['last_updated'] = datetime.now().isoformat()
         
         return jsonify(metrics)
         
     except Exception as e:
+        logger.error(f"Error in /api/deployment-metrics: {e}")
         return jsonify({
             'error': str(e)
         }), 500
@@ -211,8 +228,8 @@ def deployments():
 def recent_deployments():
     """Get recent deployments for dashboard"""
     try:
-        # Get recent deployments (last 10)
-        deployments = deployment_service.get_deployment_history(limit=10)
+        # Get recent deployments from database
+        deployments = database_service.get_deployments(limit=10)
         
         return jsonify(deployments)
         
@@ -224,14 +241,21 @@ def recent_deployments():
 @api_bp.route('/containers')
 def containers():
     """Get container information"""
+    print("TEST: /api/containers endpoint called!")
     try:
-        containers = monitoring_service.get_container_stats()
+        containers_data = monitoring_service.get_container_stats()
         
-        return jsonify(containers)
+        # Check if it's an error response
+        if isinstance(containers_data, dict) and 'error' in containers_data:
+            return jsonify(containers_data), 503  # Service Unavailable
+        
+        return jsonify(containers_data)
         
     except Exception as e:
         return jsonify({
-            'error': str(e)
+            'error': 'Failed to retrieve container information',
+            'message': str(e),
+            'containers': []
         }), 500
 
 @api_bp.route('/deploy/<job_id>/rerun', methods=['POST'])
@@ -252,7 +276,6 @@ def rerun_deployment(job_id):
         
         # Start new deployment with same parameters
         result = deployment_service.deploy(
-            job_id=new_job_id,
             action=original_deployment.get('action'),
             image_name=original_deployment.get('image'),
             environment=original_deployment.get('environment'),

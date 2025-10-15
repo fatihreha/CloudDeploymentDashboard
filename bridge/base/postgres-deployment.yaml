@@ -1,0 +1,61 @@
+#! postgres-deployment.yaml
+# Generated code, do not edit
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: postgres
+    namespace: clouddeploymentdashboard
+    labels:
+        com.docker.compose.project: clouddeploymentdashboard
+        com.docker.compose.service: postgres
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            com.docker.compose.project: clouddeploymentdashboard
+            com.docker.compose.service: postgres
+    strategy:
+        type: Recreate
+    template:
+        metadata:
+            labels:
+                com.docker.compose.project: clouddeploymentdashboard
+                com.docker.compose.service: postgres
+                com.docker.compose.network.dashboard-network: "true"
+        spec:
+            restartPolicy: unless-stopped
+            containers:
+                - name: dashboard-postgres
+                  image: postgres:15-alpine
+                  imagePullPolicy: IfNotPresent
+                  env:
+                    - name: POSTGRES_DB
+                      value: "dashboard"
+                    - name: POSTGRES_PASSWORD
+                      value: "dashboard_password"
+                    - name: POSTGRES_USER
+                      value: "dashboard_user"
+                  livenessProbe:
+                    exec:
+                        command:
+                            - /bin/sh
+                            - -c
+                            - pg_isready -U dashboard_user -d dashboard
+                    periodSeconds: 30
+                    timeoutSeconds: 10
+                    failureThreshold: 3
+                  ports:
+                    - name: postgres-5432
+                      containerPort: 5432
+                  volumeMounts:
+                    - name: var-lib-postgresql-data
+                      mountPath: /var/lib/postgresql/data
+                    - name: docker-entrypoint-initdb-d-init-sql
+                      mountPath: /docker-entrypoint-initdb.d/init.sql
+            volumes:
+                - name: var-lib-postgresql-data
+                  persistentVolumeClaim:
+                    claimName: postgres-postgres-data
+                - name: docker-entrypoint-initdb-d-init-sql
+                  hostPath:
+                    path: C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\init.sql

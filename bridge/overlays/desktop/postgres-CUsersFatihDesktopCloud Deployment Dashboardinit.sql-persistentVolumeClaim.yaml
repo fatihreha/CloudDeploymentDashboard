@@ -1,0 +1,9 @@
+#! postgres-C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\init.sql-persistentVolumeClaim.yaml
+# Generated code, do not edit
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: postgres-c--users-fatih-desktop-cloud-deployment-dashboard-init-sql
+    namespace: clouddeploymentdashboard
+spec:
+    storageClassName: "hostpath" # see docker/desktop-storage-provisioner

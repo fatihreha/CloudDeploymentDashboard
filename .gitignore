@@ -159,7 +159,51 @@ logs/
 # Node modules (if any)
 node_modules/
 
-# Interview Analysis Document (Private)
+# Mülakat Analiz Dosyası (Özel) - Bu proje hakkında detaylı bilgi
+# Bu dosya projenin teknik mimarisini, kullanılan portları ve çalışma prensiplerini açıklar:
+# 
+# KULLANILAN PORTLAR:
+# - 5000: Flask Dashboard (Ana uygulama)
+# - 6379: Redis (Cache ve session storage)
+# - 8080: Nginx (Reverse proxy - önceden 80'di)
+# - 9090: Prometheus (Monitoring)
+# - 3000: Grafana (Görselleştirme)
+# - Supabase: Cloud Database (PostgreSQL tabanlı, remote)
+#
+# PROJE AMACI:
+# Cloud deployment süreçlerini yönetmek ve izlemek için geliştirilmiş bir dashboard.
+# Docker container'ları deploy etme, health check yapma, sistem metriklerini izleme.
+# Supabase real-time features ile canlı veri güncellemeleri.
+#
+# NASIL ÇALIŞIR:
+# - Flask backend API'ler sağlar
+# - Supabase cloud database'de deployment bilgileri saklanır
+# - Supabase Python client ile veritabanı işlemleri
+# - Real-time subscriptions ve live updates
+# - Redis cache ve real-time data için kullanılır
+# - Prometheus sistem metriklerini toplar
+# - Grafana görselleştirme sağlar
+# - Nginx reverse proxy olarak çalışır
+# - Socket.IO ile real-time frontend güncellemeleri
+#
+# SUPABASE KURULUMU:
+# 1. .env dosyası oluştur (.env.example'dan kopyala)
+# 2. SUPABASE_URL ve SUPABASE_SERVICE_KEY değerlerini güncelle
+# 3. Supabase schema'sını uygula (supabase_schema.sql)
+#
+# ÖNEMLİ KOMUTLAR:
+# - cp .env.example .env (Environment variables'ları ayarla)
+# - python app.py (Flask app'i çalıştır - Supabase ile)
+# - docker-compose up -d (Tüm servisleri başlat)
+# - docker-compose --profile monitoring up -d (Monitoring ile birlikte)
+# - curl http://localhost:5000/api/health-check (Health check)
+# - curl http://localhost:5000/api/status (Sistem durumu)
+#
+# SUPABASE ENVIRONMENT VARIABLES:
+# - SUPABASE_URL: Supabase project URL'i
+# - SUPABASE_ANON_KEY: Public anon key
+# - SUPABASE_SERVICE_KEY: Service role key (backend için)
+#
 .interview_analysis.md
 
 # Temporary files

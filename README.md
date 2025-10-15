@@ -76,37 +76,128 @@ python app.py
 ```
 
 #### Option B: Docker Development
+
+##### 🐳 **Temel Geliştirme Ortamı**
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
+# Sadece temel servisler (Flask + Redis + PostgreSQL)
+docker-compose up dashboard redis postgres
 
-# Run in background
-docker-compose up -d
+# Arka planda çalıştır
+docker-compose up -d dashboard redis postgres
 
-# View logs
+# Logları takip et
 docker-compose logs -f dashboard
 ```
 
-### 3. Production Deployment
+##### 🌐 **Production Simülasyonu (Nginx ile)**
 ```bash
-# Deploy with all services (including monitoring)
+# Nginx reverse proxy ile
+docker-compose --profile production up
+
+# Arka planda çalıştır
+docker-compose --profile production up -d
+
+# Nginx logları
+docker-compose logs -f nginx
+```
+
+##### 📊 **Monitoring Stack (Prometheus + Grafana)**
+```bash
+# Monitoring servisleri ekle
+docker-compose --profile monitoring up
+
+# Sadece monitoring servislerini başlat
+docker-compose up prometheus grafana
+
+# Monitoring logları
+docker-compose logs -f prometheus grafana
+```
+
+##### 🚀 **Tam Production Ortamı**
+```bash
+# Tüm servisler (Nginx + Monitoring)
+docker-compose --profile production --profile monitoring up
+
+# Arka planda tam stack
 docker-compose --profile production --profile monitoring up -d
 
-# Or use the deployment script
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh --build --production
+# Tüm servisleri yeniden başlat
+docker-compose --profile production --profile monitoring restart
+
+# Belirli servisi yeniden başlat
+docker-compose restart dashboard
+```
+
+##### 🔧 **Geliştirme Komutları**
+```bash
+# Servisleri durdur
+docker-compose down
+
+# Volumes ile birlikte temizle
+docker-compose down -v
+
+# Images ile birlikte temizle
+docker-compose down --rmi all
+
+# Yeniden build et
+docker-compose build --no-cache
+
+# Belirli servisi build et
+docker-compose build dashboard
+
+# Container'a bağlan
+docker-compose exec dashboard bash
+docker-compose exec postgres psql -U dashboard_user -d dashboard
+docker-compose exec redis redis-cli
+```
+
+### 3. Production Deployment
+
+#### 🌐 **Google Cloud Platform (GCP)**
+```bash
+# GCP'ye deploy et (GitHub Actions ile otomatik)
+git add .
+git commit -m "Deploy to GCP"
+git push origin main
+
+# Manuel GCP deployment
+gcloud run deploy dashboard \
+  --image gcr.io/PROJECT_ID/dashboard:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+
+# GCP logs
+gcloud logs tail --service=dashboard
+```
+
+#### 🐳 **Local Production Test**
+```bash
+# Production ortamını test et
+docker-compose --profile production --profile monitoring up -d
+
+# Health check
+curl http://localhost/api/health-check
+
+# Monitoring check
+curl http://localhost:9090/api/v1/query?query=up
 ```
 
 ## 🔧 Configuration
 
-### Environment Variables
-Create a `.env` file in the root directory:
+### 🔑 **Environment Variables**
+`.env` dosyasını oluşturun:
 
 ```env
 # Flask Configuration
 FLASK_ENV=production
-FLASK_SECRET_KEY=your-secret-key-here
+FLASK_SECRET_KEY=your-super-secret-key-here
 FLASK_DEBUG=False
+
+# Supabase Configuration (Gerekli!)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Database Configuration
 DATABASE_URL=postgresql://dashboard_user:dashboard_password@postgres:5432/dashboard
@@ -119,9 +210,36 @@ DOCKER_HOST=unix:///var/run/docker.sock
 PROMETHEUS_URL=http://prometheus:9090
 GRAFANA_URL=http://grafana:3000
 
+# Telegram Bot Configuration (Opsiyonel)
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_CHAT_ID=your-chat-id
+
+# GCP Configuration (Production için)
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_SA_KEY=base64-encoded-service-account-key
+
 # Security Configuration
 JWT_SECRET_KEY=your-jwt-secret-here
-CORS_ORIGINS=http://localhost:3000,http://localhost:5000
+CORS_ORIGINS=http://localhost:3000,http://localhost:5000,http://localhost:80
+```
+
+### 📋 **Hızlı Kurulum Checklist**
+```bash
+# 1. Environment dosyasını kopyala
+cp .env.example .env
+
+# 2. Supabase bilgilerini ekle (.env dosyasına)
+# SUPABASE_URL=https://your-project.supabase.co
+# SUPABASE_ANON_KEY=your-anon-key
+
+# 3. Temel stack'i başlat
+docker-compose up dashboard redis postgres
+
+# 4. Tarayıcıda test et
+# http://localhost:5000
+
+# 5. Production test (Nginx + Monitoring)
+docker-compose --profile production --profile monitoring up -d
 ```
 
 ### Database Setup
@@ -137,12 +255,47 @@ psql -h localhost -U dashboard_user -d dashboard
 
 ## 📊 Usage
 
-### Dashboard Access
-- **Main Dashboard**: http://localhost:5000
-- **API Documentation**: http://localhost:5000/api/docs
+### 🌐 **Dashboard Access**
+
+#### 🐳 **Temel Stack** (`docker-compose up dashboard redis postgres`)
+- **Ana Dashboard**: http://localhost:5000
+- **API Dokümantasyonu**: http://localhost:5000/api/docs
 - **Health Check**: http://localhost:5000/api/health-check
-- **Monitoring (Grafana)**: http://localhost:3000 (admin/admin)
-- **Metrics (Prometheus)**: http://localhost:9090
+- **Database**: PostgreSQL (localhost:5432)
+- **Cache**: Redis (localhost:6379)
+
+#### 🌐 **Production Stack** (`--profile production`)
+- **Nginx (Ana Giriş)**: http://localhost:80
+- **Dashboard (Direkt)**: http://localhost:5000
+- **SSL Termination**: Nginx üzerinden
+- **Load Balancing**: Nginx reverse proxy
+
+#### 📊 **Monitoring Stack** (`--profile monitoring`)
+- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **Prometheus Metrics**: http://localhost:9090
+- **Prometheus Targets**: http://localhost:9090/targets
+- **Grafana Datasources**: Prometheus otomatik bağlı
+
+#### 🚀 **Tam Stack** (`--profile production --profile monitoring`)
+- **Ana Giriş**: http://localhost:80 (Nginx)
+- **Monitoring**: http://localhost:3000 (Grafana)
+- **Metrics**: http://localhost:9090 (Prometheus)
+- **API**: http://localhost:80/api/ (Nginx üzerinden)
+
+### 🔍 **Health Check Endpoints**
+```bash
+# Temel health check
+curl http://localhost:5000/api/health-check
+
+# Nginx üzerinden
+curl http://localhost:80/api/health-check
+
+# Detaylı sistem bilgisi
+curl http://localhost:5000/api/system-info
+
+# Database bağlantı testi
+curl http://localhost:5000/api/db-health
+```
 
 ### API Endpoints
 
@@ -315,6 +468,122 @@ The project includes a comprehensive CI/CD pipeline:
 - Rate limiting and DDoS protection
 - Audit logging for all operations
 - Secure Docker socket access
+
+## 🔧 **Troubleshooting**
+
+### 🐳 **Docker Sorunları**
+```bash
+# Container'lar çalışıyor mu?
+docker-compose ps
+
+# Logları kontrol et
+docker-compose logs dashboard
+docker-compose logs nginx
+docker-compose logs postgres
+
+# Container'a bağlan ve debug et
+docker-compose exec dashboard bash
+docker-compose exec postgres psql -U dashboard_user -d dashboard
+
+# Port çakışması
+netstat -tulpn | grep :5000
+netstat -tulpn | grep :80
+
+# Docker temizliği
+docker system prune -a
+docker volume prune
+```
+
+### 🌐 **Network Sorunları**
+```bash
+# Nginx konfigürasyonu test et
+docker-compose exec nginx nginx -t
+
+# Network bağlantısı test et
+docker-compose exec dashboard ping postgres
+docker-compose exec dashboard ping redis
+
+# Port erişimi test et
+curl -I http://localhost:5000/api/health-check
+curl -I http://localhost:80/api/health-check
+```
+
+### 📊 **Database Sorunları**
+```bash
+# PostgreSQL bağlantısı test et
+docker-compose exec postgres pg_isready -U dashboard_user
+
+# Database'e bağlan
+docker-compose exec postgres psql -U dashboard_user -d dashboard
+
+# Redis bağlantısı test et
+docker-compose exec redis redis-cli ping
+
+# Database migration
+docker-compose exec dashboard python -c "from app import db; db.create_all()"
+```
+
+### 🔍 **Monitoring Sorunları**
+```bash
+# Prometheus targets kontrol et
+curl http://localhost:9090/api/v1/targets
+
+# Grafana datasource test et
+curl http://localhost:3000/api/health
+
+# Metrics endpoint test et
+curl http://localhost:5000/metrics
+```
+
+### ⚡ **Performance Sorunları**
+```bash
+# Container resource kullanımı
+docker stats
+
+# Disk kullanımı
+docker system df
+
+# Memory kullanımı
+docker-compose exec dashboard free -h
+
+# CPU kullanımı
+docker-compose exec dashboard top
+```
+
+### 🚨 **Yaygın Hatalar ve Çözümleri**
+
+#### Port 5000 zaten kullanımda
+```bash
+# Çakışan process'i bul
+netstat -tulpn | grep :5000
+# veya
+lsof -i :5000
+
+# Process'i sonlandır
+kill -9 <PID>
+```
+
+#### Database bağlantı hatası
+```bash
+# PostgreSQL servisini yeniden başlat
+docker-compose restart postgres
+
+# Database'i yeniden oluştur
+docker-compose down -v
+docker-compose up postgres
+```
+
+#### Nginx 502 Bad Gateway
+```bash
+# Dashboard servisinin çalıştığını kontrol et
+docker-compose ps dashboard
+
+# Nginx konfigürasyonunu test et
+docker-compose exec nginx nginx -t
+
+# Nginx'i yeniden başlat
+docker-compose restart nginx
+```
 
 ## 📈 Performance
 
