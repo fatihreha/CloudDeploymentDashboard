@@ -267,14 +267,39 @@ function initializeDeploymentPage() {
 
 function initializeSocket() {
     if (typeof io !== 'undefined') {
-        deploymentSocket = io();
+        deploymentSocket = io({
+            transports: ['websocket', 'polling'],
+            timeout: 5000,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
         
-        deploymentSocket.on('deployment_update', function(data) {
+        deploymentSocket.on('connect', function() {
+            console.log('Deployment socket connected');
+            showNotification('Real-time connection established', 'success');
+        });
+        
+        deploymentSocket.on('disconnect', function() {
+            console.log('Deployment socket disconnected');
+            showNotification('Real-time connection lost', 'warning');
+        });
+        
+        deploymentSocket.on('deployment_status_update', function(data) {
+            console.log('Received deployment status update:', data);
             updateDeploymentStatus(data);
         });
         
-        deploymentSocket.on('deployment_log', function(data) {
-            appendDeploymentLog(data);
+        deploymentSocket.on('deployment_logs', function(data) {
+            console.log('Received deployment logs:', data);
+            if (data && data.logs) {
+                data.logs.forEach(log => appendDeploymentLog(log));
+            }
+        });
+        
+        deploymentSocket.on('deployment_progress', function(data) {
+            console.log('Received deployment progress:', data);
+            updateDeploymentProgress(data);
         });
     }
 }
@@ -308,16 +333,22 @@ function startDeployment(deploymentData) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
+        if (data.success || data.job_id) {
             currentJobId = data.job_id;
             showCurrentDeployment(data);
+            showNotification('Deployment started successfully!', 'success');
             
             // Join the deployment room for real-time updates
             if (deploymentSocket) {
-                deploymentSocket.emit('join_deployment', {job_id: data.job_id});
+                deploymentSocket.emit('join_logs', {job_id: data.job_id});
+            }
+            
+            // Start polling for updates if socket is not available
+            if (!deploymentSocket) {
+                startPollingDeploymentStatus(data.job_id);
             }
         } else {
-            throw new Error(data.error || 'Deployment failed');
+            throw new Error(data.error || data.message || 'Deployment failed');
         }
     })
     .catch(error => {
@@ -355,26 +386,44 @@ function showCurrentDeployment(deploymentData) {
 }
 
 function updateDeploymentStatus(data) {
-    if (data.job_id !== currentJobId) return;
+    if (!data || (currentJobId && data.job_id !== currentJobId)) return;
     
     const statusElement = document.getElementById('current-status');
     const progressElement = document.getElementById('deployment-progress');
     
-    switch (data.status) {
-        case 'running':
-            statusElement.innerHTML = '<span class="badge bg-primary">Running</span>';
-            progressElement.style.width = '50%';
-            break;
-        case 'completed':
-            statusElement.innerHTML = '<span class="badge bg-success">Completed</span>';
-            progressElement.style.width = '100%';
-            progressElement.classList.remove('progress-bar-animated');
-            break;
-        case 'failed':
-            statusElement.innerHTML = '<span class="badge bg-danger">Failed</span>';
-            progressElement.classList.remove('progress-bar-animated');
-            progressElement.classList.add('bg-danger');
-            break;
+    if (statusElement) {
+        switch (data.status) {
+            case 'pending':
+                statusElement.innerHTML = '<span class="badge bg-secondary">Pending</span>';
+                break;
+            case 'running':
+                statusElement.innerHTML = '<span class="badge bg-primary">Running</span>';
+                if (progressElement && !data.progress) {
+                    progressElement.style.width = '50%';
+                }
+                break;
+            case 'completed':
+                statusElement.innerHTML = '<span class="badge bg-success">Completed</span>';
+                if (progressElement) {
+                    progressElement.style.width = '100%';
+                    progressElement.classList.remove('progress-bar-animated');
+                }
+                showNotification('Deployment completed successfully!', 'success');
+                break;
+            case 'failed':
+                statusElement.innerHTML = '<span class="badge bg-danger">Failed</span>';
+                if (progressElement) {
+                    progressElement.classList.remove('progress-bar-animated');
+                    progressElement.classList.add('bg-danger');
+                }
+                showNotification('Deployment failed!', 'error');
+                break;
+        }
+    }
+    
+    // Update progress if provided
+    if (data.progress !== undefined && progressElement) {
+        updateDeploymentProgress(data);
     }
     
     // Refresh history when deployment completes
@@ -383,15 +432,47 @@ function updateDeploymentStatus(data) {
     }
 }
 
+function updateDeploymentProgress(data) {
+    if (!data || (currentJobId && data.job_id !== currentJobId)) return;
+    
+    const progressElement = document.getElementById('deployment-progress');
+    if (progressElement && data.progress !== undefined) {
+        const progress = Math.max(0, Math.min(100, data.progress));
+        progressElement.style.width = `${progress}%`;
+        progressElement.setAttribute('aria-valuenow', progress);
+        
+        // Update progress text if available
+        if (data.message) {
+            progressElement.textContent = data.message;
+        }
+    }
+}
+
 function appendDeploymentLog(data) {
-    if (data.job_id !== currentJobId) return;
+    if (!data || (currentJobId && data.job_id && data.job_id !== currentJobId)) return;
     
     const logsContent = document.getElementById('logs-content');
-    const timestamp = new Date(data.timestamp).toLocaleTimeString();
-    logsContent.textContent += `[${timestamp}] ${data.message}\n`;
+    const logsContainer = document.getElementById('deployment-logs');
     
-    // Auto-scroll to bottom
-    logsContent.scrollTop = logsContent.scrollHeight;
+    if (logsContent) {
+        // Show logs container if hidden
+        if (logsContainer && logsContainer.style.display === 'none') {
+            logsContainer.style.display = 'block';
+        }
+        
+        const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+        const message = data.message || data;
+        
+        // Clear initial message if it's the first real log
+        if (logsContent.textContent.includes('Waiting for deployment to start...')) {
+            logsContent.textContent = '';
+        }
+        
+        logsContent.textContent += `[${timestamp}] ${message}\n`;
+        
+        // Auto-scroll to bottom
+        logsContent.scrollTop = logsContent.scrollHeight;
+    }
 }
 
 function toggleLogs() {
@@ -522,6 +603,46 @@ function setImageName(imageName) {
 
 function resetForm() {
     document.getElementById('deployment-form').reset();
+}
+
+function startPollingDeploymentStatus(jobId) {
+    const pollInterval = setInterval(() => {
+        fetch(`/api/deployment-status/${jobId}`)
+            .then(response => response.json())
+            .then(data => {
+                updateDeploymentStatus(data);
+                
+                // Stop polling if deployment is complete
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(pollInterval);
+                }
+            })
+            .catch(error => {
+                console.error('Error polling deployment status:', error);
+            });
+    }, 2000); // Poll every 2 seconds
+}
+
+function showNotification(message, type = 'info', title = null) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    
+    notification.innerHTML = `
+        ${title ? `<strong>${title}</strong><br>` : ''}
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
 }
 </script>
 {% endblock %}

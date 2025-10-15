@@ -24,6 +24,14 @@ class RealtimeService:
         self.streaming_threads = {}
         self.is_running = False
         
+        # Initialize database service
+        try:
+            from app.services.database_service import DatabaseService
+            self.db = DatabaseService()
+        except Exception as e:
+            logger.warning(f"Database service not available: {e}")
+            self.db = None
+        
         # Register Socket.IO event handlers
         self.register_handlers()
         
@@ -155,7 +163,11 @@ class RealtimeService:
     def emit_deployment_metrics(self):
         """Emit deployment metrics"""
         try:
-            metrics = self.monitoring_service.get_deployment_metrics()
+            if self.db:
+                metrics = self.db.get_deployment_metrics()
+            else:
+                metrics = self.monitoring_service.get_deployment_metrics()
+            
             self.socketio.emit('deployment_metrics', {
                 'timestamp': datetime.now().isoformat(),
                 'data': metrics
@@ -166,7 +178,11 @@ class RealtimeService:
     def emit_recent_deployments(self):
         """Emit recent deployments"""
         try:
-            deployments = self.deployment_service.get_recent_deployments(limit=10)
+            if self.db:
+                deployments = self.db.get_deployments(limit=10)
+            else:
+                deployments = self.deployment_service.get_recent_deployments(limit=10)
+            
             self.socketio.emit('recent_deployments', {
                 'timestamp': datetime.now().isoformat(),
                 'data': deployments

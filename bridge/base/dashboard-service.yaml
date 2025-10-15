@@ -1,0 +1,23 @@
+# check if there is at least one published port
+
+#! dashboard-service.yaml
+# Generated code, do not edit
+apiVersion: v1
+kind: Service
+metadata:
+    name: dashboard-published
+    namespace: clouddeploymentdashboard
+    labels:
+        com.docker.compose.project: clouddeploymentdashboard
+        com.docker.compose.service: dashboard
+spec:
+    selector:
+        com.docker.compose.project: clouddeploymentdashboard
+        com.docker.compose.service: dashboard
+    ports:
+        - name: dashboard-5000
+          port: 5000
+          protocol: TCP
+          targetPort: dashboard-5000
+
+# check if there is at least one published port

@@ -1,0 +1,20 @@
+#! kustomization.yaml
+# Generated code, do not edit
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+    - 0-clouddeploymentdashboard-namespace.yaml
+    - dashboard-C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\logs-persistentVolumeClaim.yaml
+    - dashboard-deployment.yaml
+    - dashboard-expose.yaml
+    - dashboard-network-network-policy.yaml
+    - dashboard-service.yaml
+    - postgres-C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\init.sql-persistentVolumeClaim.yaml
+    - postgres-deployment.yaml
+    - postgres-expose.yaml
+    - postgres-postgres_data-persistentVolumeClaim.yaml
+    - postgres-service.yaml
+    - redis-deployment.yaml
+    - redis-expose.yaml
+    - redis-redis_data-persistentVolumeClaim.yaml
+    - redis-service.yaml

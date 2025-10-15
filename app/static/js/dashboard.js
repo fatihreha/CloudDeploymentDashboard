@@ -69,37 +69,101 @@ function setupEventListeners() {
 
 // Initialize Socket.IO connection
 function initializeSocketIO() {
-    socket = io();
-    
-    socket.on('connect', function() {
-        console.log('Connected to server');
-        showNotification('Connected to server', 'success');
+    try {
+        socket = io({
+            transports: ['websocket', 'polling'],
+            timeout: 5000,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
         
-        // Start monitoring when connected
-        socket.emit('start_monitoring');
-    });
-    
-    socket.on('disconnect', function() {
-        console.log('Disconnected from server');
-        showNotification('Disconnected from server', 'warning');
-    });
-    
-    // Real-time system status updates
-    socket.on('system_status', function(data) {
-        console.log('Received system status update:', data);
-        updateSystemStatus(data.data);
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            showNotification('Connected to server', 'success');
+            updateConnectionStatus('connected');
+            
+            // Start monitoring when connected
+            socket.emit('start_monitoring');
+        });
         
-        // Update charts with real-time data
-        const timestamp = new Date(data.timestamp).toLocaleTimeString();
-        updateChart('cpu', timestamp, data.data.cpu_usage || 0);
-        updateChart('memory', timestamp, data.data.memory_usage || 0);
-    });
-    
-    // Real-time deployment metrics updates
-    socket.on('deployment_metrics', function(data) {
-        console.log('Received deployment metrics update:', data);
-        updateDeploymentMetrics(data.data);
-    });
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+            showNotification('Disconnected from server', 'warning');
+            updateConnectionStatus('disconnected');
+        });
+        
+        socket.on('connect_error', function(error) {
+            console.error('Connection error:', error);
+            showNotification('Connection error', 'error');
+            updateConnectionStatus('error');
+        });
+        
+        socket.on('reconnect', function() {
+            console.log('Reconnected to server');
+            showNotification('Reconnected to server', 'success');
+            updateConnectionStatus('connected');
+        });
+        
+        // Real-time system status updates
+        socket.on('system_status', function(data) {
+            console.log('Received system status update:', data);
+            if (data && data.data) {
+                updateSystemStatus(data.data);
+                
+                // Update charts with real-time data
+                const timestamp = new Date(data.timestamp).toLocaleTimeString();
+                updateChart('cpu', timestamp, data.data.cpu_usage || 0);
+                updateChart('memory', timestamp, data.data.memory_usage || 0);
+            }
+        });
+        
+        // Real-time deployment metrics updates
+        socket.on('deployment_metrics', function(data) {
+            console.log('Received deployment metrics update:', data);
+            if (data && data.data) {
+                updateDeploymentMetrics(data.data);
+            }
+        });
+        
+        // Container stats updates
+        socket.on('container_stats', function(data) {
+            console.log('Received container stats update:', data);
+            if (data && data.data) {
+                updateContainerStats(data.data);
+            }
+        });
+        
+        // Health check results
+        socket.on('health_check_result', function(data) {
+            console.log('Received health check result:', data);
+            if (data && data.data) {
+                updateHealthCheckResults(data.data);
+            }
+        });
+        
+        // Deployment logs
+        socket.on('deployment_logs', function(data) {
+            console.log('Received deployment logs:', data);
+            if (data && data.logs) {
+                displayDeploymentLogs(data);
+            }
+        });
+        
+        // Deployment status updates
+        socket.on('deployment_status_update', function(data) {
+            console.log('Received deployment status update:', data);
+            if (data) {
+                updateDeploymentStatusDisplay(data);
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error initializing Socket.IO:', error);
+        showNotification('Failed to initialize real-time connection', 'error');
+        updateConnectionStatus('error');
+     }
+}
     
     // Real-time deployment updates
     socket.on('recent_deployments', function(data) {
@@ -160,30 +224,99 @@ function initializeSocketIO() {
     });
 }
 
+// Update connection status indicator
+function updateConnectionStatus(status) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+        statusElement.className = 'connection-status';
+        
+        switch (status) {
+            case 'connected':
+                statusElement.classList.add('connected');
+                statusElement.textContent = 'Connected';
+                statusElement.title = 'Real-time connection active';
+                break;
+            case 'disconnected':
+                statusElement.classList.add('disconnected');
+                statusElement.textContent = 'Disconnected';
+                statusElement.title = 'Real-time connection lost';
+                break;
+            case 'error':
+                statusElement.classList.add('error');
+                statusElement.textContent = 'Connection Error';
+                statusElement.title = 'Failed to establish connection';
+                break;
+            default:
+                statusElement.classList.add('connecting');
+                statusElement.textContent = 'Connecting...';
+                statusElement.title = 'Establishing connection';
+        }
+    }
+}
+
 // Load dashboard data
 async function loadDashboardData() {
     try {
         // Load system status
-        const statusResponse = await fetch('/api/status');
-        if (statusResponse.ok) {
-            const statusData = await statusResponse.json();
-            updateSystemStatus(statusData);
+        try {
+            const statusResponse = await fetch('/api/status');
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData) {
+                    updateSystemStatus(statusData);
+                }
+            } else {
+                console.warn('Failed to load system status:', statusResponse.status);
+            }
+        } catch (error) {
+            console.error('Error loading system status:', error);
         }
         
         // Load deployment metrics
-        const metricsResponse = await fetch('/api/deployment-metrics');
-        if (metricsResponse.ok) {
-            const metricsData = await metricsResponse.json();
-            updateDeploymentMetrics(metricsData);
+        try {
+            const metricsResponse = await fetch('/api/deployment-metrics');
+            if (metricsResponse.ok) {
+                const metricsData = await metricsResponse.json();
+                if (metricsData) {
+                    updateDeploymentMetrics(metricsData);
+                }
+            } else {
+                console.warn('Failed to load deployment metrics:', metricsResponse.status);
+            }
+        } catch (error) {
+            console.error('Error loading deployment metrics:', error);
         }
         
         // Load recent deployments
-        const deploymentsResponse = await fetch('/api/deployments/recent');
-        if (deploymentsResponse.ok) {
-            const deploymentsData = await deploymentsResponse.json();
-            updateRecentDeployments(deploymentsData);
+        try {
+            const deploymentsResponse = await fetch('/api/deployments/recent');
+            if (deploymentsResponse.ok) {
+                const deploymentsData = await deploymentsResponse.json();
+                if (deploymentsData) {
+                    updateRecentDeployments(deploymentsData);
+                }
+            } else {
+                console.warn('Failed to load recent deployments:', deploymentsResponse.status);
+            }
+        } catch (error) {
+            console.error('Error loading recent deployments:', error);
         }
-        
+
+        // Load container stats
+        try {
+            const containersResponse = await fetch('/api/containers');
+            if (containersResponse.ok) {
+                const containersData = await containersResponse.json();
+                if (containersData) {
+                    updateContainerStats(containersData);
+                }
+            } else {
+                console.warn('Failed to load container stats:', containersResponse.status);
+            }
+        } catch (error) {
+            console.error('Error loading container stats:', error);
+        }
+
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         showNotification('Error loading dashboard data', 'error');
@@ -192,31 +325,45 @@ async function loadDashboardData() {
 
 // Update system status display
 function updateSystemStatus(data) {
+    if (!data) {
+        console.warn('No data provided to updateSystemStatus');
+        return;
+    }
+    
     // Update CPU usage
     const cpuElement = document.getElementById('cpuUsage');
     if (cpuElement) {
-        cpuElement.textContent = `${data.cpu_usage || 0}%`;
-        updateProgressBar('cpuProgress', data.cpu_usage || 0);
+        const cpuUsage = data.cpu_usage || 0;
+        cpuElement.textContent = `${cpuUsage}%`;
+        updateProgressBar('cpuProgress', cpuUsage);
     }
     
     // Update Memory usage
     const memoryElement = document.getElementById('memoryUsage');
     if (memoryElement) {
-        memoryElement.textContent = `${data.memory_usage || 0}%`;
-        updateProgressBar('memoryProgress', data.memory_usage || 0);
+        const memoryUsage = data.memory_usage || 0;
+        memoryElement.textContent = `${memoryUsage}%`;
+        updateProgressBar('memoryProgress', memoryUsage);
     }
     
     // Update Disk usage
     const diskElement = document.getElementById('diskUsage');
     if (diskElement) {
-        diskElement.textContent = `${data.disk_usage || 0}%`;
-        updateProgressBar('diskProgress', data.disk_usage || 0);
+        const diskUsage = data.disk_usage || 0;
+        diskElement.textContent = `${diskUsage}%`;
+        updateProgressBar('diskProgress', diskUsage);
     }
     
     // Update container count
     const containerElement = document.getElementById('containerCount');
     if (containerElement) {
         containerElement.textContent = data.active_containers || 0;
+    }
+    
+    // Update network stats if available
+    const networkElement = document.getElementById('networkStats');
+    if (networkElement && data.network_stats) {
+        networkElement.textContent = `${data.network_stats.bytes_sent || 0} / ${data.network_stats.bytes_recv || 0}`;
     }
 }
 
@@ -266,20 +413,30 @@ function updateRecentDeployments(deployments) {
 
 // Update progress bar
 function updateProgressBar(id, percentage) {
+    if (!id) {
+        console.warn('No ID provided to updateProgressBar');
+        return;
+    }
+    
     const progressBar = document.getElementById(id);
     if (progressBar) {
-        progressBar.style.width = `${percentage}%`;
-        progressBar.setAttribute('aria-valuenow', percentage);
+        // Ensure percentage is a valid number between 0 and 100
+        const validPercentage = Math.max(0, Math.min(100, parseFloat(percentage) || 0));
+        
+        progressBar.style.width = `${validPercentage}%`;
+        progressBar.setAttribute('aria-valuenow', validPercentage);
         
         // Change color based on percentage
         progressBar.className = 'progress-bar';
-        if (percentage > 80) {
+        if (validPercentage > 80) {
             progressBar.classList.add('bg-danger');
-        } else if (percentage > 60) {
+        } else if (validPercentage > 60) {
             progressBar.classList.add('bg-warning');
         } else {
             progressBar.classList.add('bg-success');
         }
+    } else {
+        console.warn(`Progress bar element with ID '${id}' not found`);
     }
 }
 

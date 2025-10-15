@@ -1,0 +1,59 @@
+#! dashboard-deployment.yaml
+# Generated code, do not edit
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: dashboard
+    namespace: clouddeploymentdashboard
+    labels:
+        com.docker.compose.project: clouddeploymentdashboard
+        com.docker.compose.service: dashboard
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            com.docker.compose.project: clouddeploymentdashboard
+            com.docker.compose.service: dashboard
+    strategy:
+        type: Recreate
+    template:
+        metadata:
+            labels:
+                com.docker.compose.project: clouddeploymentdashboard
+                com.docker.compose.service: dashboard
+                com.docker.compose.network.dashboard-network: "true"
+        spec:
+            restartPolicy: unless-stopped
+            containers:
+                - name: cloud-deployment-dashboard
+                  image: clouddeploymentdashboard-dashboard
+                  imagePullPolicy: IfNotPresent
+                  env:
+                    - name: FLASK_APP
+                      value: "app.py"
+                    - name: FLASK_ENV
+                      value: "production"
+                    - name: PYTHONPATH
+                      value: "/app"
+                  livenessProbe:
+                    exec:
+                        command: ['curl -f http://localhost:5000/api/health-check']
+                    periodSeconds: 30
+                    initialDelaySeconds: 40
+                    timeoutSeconds: 10
+                    failureThreshold: 3
+                  ports:
+                    - name: dashboard-5000
+                      containerPort: 5000
+                  volumeMounts:
+                    - name: app-logs
+                      mountPath: /app/logs
+                    - name: var-run-docker-sock
+                      mountPath: /var/run/docker.sock
+            volumes:
+                - name: app-logs
+                  hostPath:
+                    path: C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\logs
+                - name: var-run-docker-sock
+                  hostPath:
+                    path: /var/run/docker.sock

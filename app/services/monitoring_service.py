@@ -11,13 +11,22 @@ from typing import Dict, Any, List
 import logging
 
 logger = logging.getLogger(__name__)
+logger.info("MonitoringService module loaded!")
 
 class MonitoringService:
     def __init__(self):
-        self.logs_dir = "logs/containers"
-        self.health_logs_dir = "logs/health-checks"
-        self.deployment_logs_dir = "logs/deployments"
+        self.logs_dir = 'logs/monitoring'
+        self.health_logs_dir = 'logs/health'
+        self.deployment_logs_dir = 'logs/deployments'
         self.ensure_logs_dirs()
+        
+        # Initialize database service
+        try:
+            from app.services.database_service import DatabaseService
+            self.db = DatabaseService()
+        except Exception as e:
+            logger.warning(f"Database service not available: {e}")
+            self.db = None
     
     def ensure_logs_dirs(self):
         """Ensure logs directories exist"""
@@ -85,52 +94,103 @@ class MonitoringService:
     
     def get_container_stats(self) -> List[Dict[str, Any]]:
         """Get Docker container statistics"""
+        print("TEST: get_container_stats() called!")
+        logger.info("get_container_stats() called - starting Docker container retrieval")
+        
         try:
-            # Simulate container stats (in real implementation, use docker API)
-            containers = [
-                {
-                    'id': 'web-app-001',
-                    'name': 'cloud-dashboard-web',
-                    'status': 'running',
-                    'image': 'cloud-dashboard:latest',
-                    'created': '2024-01-15T10:30:00Z',
-                    'ports': ['80:8080', '443:8443'],
-                    'cpu_percent': 15.2,
-                    'memory_usage': '256MB',
-                    'memory_limit': '512MB',
-                    'memory_percent': 50.0,
-                    'network_rx': '1.2MB',
-                    'network_tx': '850KB',
-                    'block_read': '10MB',
-                    'block_write': '5MB'
-                },
-                {
-                    'id': 'db-001',
-                    'name': 'cloud-dashboard-db',
-                    'status': 'running',
-                    'image': 'postgres:13',
-                    'created': '2024-01-15T10:25:00Z',
-                    'ports': ['5432:5432'],
-                    'cpu_percent': 8.5,
-                    'memory_usage': '128MB',
-                    'memory_limit': '256MB',
-                    'memory_percent': 50.0,
-                    'network_rx': '500KB',
-                    'network_tx': '300KB',
-                    'block_read': '50MB',
-                    'block_write': '25MB'
-                }
-            ]
+            import docker
+            logger.info("Docker library imported successfully")
             
+            client = docker.from_env()
+            logger.info("Docker client created successfully")
+            
+            containers = []
+            
+            # Get all containers (including stopped ones)
+            all_containers = client.containers.list(all=True)
+            logger.info(f"Found {len(all_containers)} containers")
+            
+            for container in all_containers:
+                try:
+                    # Basic container info
+                    container_info = {
+                        'id': container.id[:12],
+                        'name': container.name,
+                        'status': container.status,
+                        'image': container.image.tags[0] if container.image.tags else container.image.id[:12],
+                        'created': container.attrs['Created'],
+                        'cpu_usage': '0%',
+                        'memory_usage': 'N/A',
+                        'network_io': 'N/A'
+                    }
+                    
+                    logger.info(f"Processing container: {container.name} (status: {container.status})")
+                    
+                    # Only get stats for running containers
+                    if container.status == 'running':
+                        try:
+                            # Get container stats
+                            stats = container.stats(stream=False)
+                            
+                            # Calculate CPU percentage
+                            cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - stats['precpu_stats']['cpu_usage']['total_usage']
+                            system_delta = stats['cpu_stats']['system_cpu_usage'] - stats['precpu_stats']['system_cpu_usage']
+                            cpu_percent = 0.0
+                            if system_delta > 0 and cpu_delta > 0:
+                                cpu_percent = (cpu_delta / system_delta) * len(stats['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
+                            
+                            # Calculate memory usage
+                            memory_usage = stats['memory_stats'].get('usage', 0)
+                            memory_limit = stats['memory_stats'].get('limit', 0)
+                            
+                            # Calculate network I/O
+                            network_rx = 0
+                            network_tx = 0
+                            if 'networks' in stats:
+                                for interface in stats['networks'].values():
+                                    network_rx += interface.get('rx_bytes', 0)
+                                    network_tx += interface.get('tx_bytes', 0)
+                            
+                            # Update container info with stats
+                            container_info.update({
+                                'cpu_usage': f"{cpu_percent:.1f}%",
+                                'memory_usage': f"{memory_usage / (1024*1024):.1f}MB / {memory_limit / (1024*1024):.1f}MB",
+                                'network_io': f"{network_rx / (1024*1024):.1f}MB / {network_tx / (1024*1024):.1f}MB"
+                            })
+                            
+                            logger.info(f"Stats retrieved for {container.name}: CPU {cpu_percent:.2f}%")
+                            
+                        except Exception as stats_error:
+                            logger.warning(f"Error getting stats for running container {container.name}: {stats_error}")
+                    
+                    containers.append(container_info)
+                    
+                except Exception as e:
+                    logger.warning(f"Error processing container {container.id}: {e}")
+                    continue
+            
+            logger.info(f"Successfully retrieved stats for {len(containers)} containers")
             return containers
             
+        except docker.errors.DockerException as e:
+            logger.error(f"Docker daemon connection error: {e}")
+            return {
+                'error': 'Docker daemon not available',
+                'message': 'Please ensure Docker is running',
+                'containers': []
+            }
         except Exception as e:
-            logger.error(f"Error getting container stats: {e}")
-            return []
+            logger.error(f"Unexpected error getting container stats: {e}")
+            return {
+                'error': 'Failed to retrieve container statistics',
+                'message': str(e),
+                'containers': []
+            }
     
     def perform_health_check(self) -> Dict[str, Any]:
         """Perform comprehensive health check"""
         try:
+            import requests
             health_status = {
                 'timestamp': datetime.now().isoformat(),
                 'overall_status': 'healthy',
@@ -145,9 +205,57 @@ class MonitoringService:
             
             health_status['checks']['system'] = {
                 'status': 'healthy' if all([cpu_healthy, memory_healthy, disk_healthy]) else 'warning',
+                'message': f"CPU: {system_stats.get('cpu', {}).get('percent', 0):.1f}%, Memory: {system_stats.get('memory', {}).get('percent', 0):.1f}%, Disk: {system_stats.get('disk', {}).get('percent', 0):.1f}%",
                 'cpu_ok': cpu_healthy,
                 'memory_ok': memory_healthy,
                 'disk_ok': disk_healthy
+            }
+            
+            # Web server health
+            web_server_healthy = True
+            try:
+                response = requests.get('http://localhost:5000/health', timeout=5)
+                web_server_healthy = response.status_code == 200
+            except:
+                web_server_healthy = False
+            
+            health_status['checks']['web_server'] = {
+                'status': 'healthy' if web_server_healthy else 'critical',
+                'message': 'Web server is responding' if web_server_healthy else 'Web server is not responding'
+            }
+            
+            # Database health
+            database_healthy = True
+            try:
+                # Try to connect to PostgreSQL
+                import psycopg2
+                conn = psycopg2.connect(
+                    host='localhost',
+                    port=5432,
+                    database='postgres',
+                    user='postgres',
+                    password='postgres'
+                )
+                conn.close()
+            except:
+                database_healthy = False
+            
+            health_status['checks']['database'] = {
+                'status': 'healthy' if database_healthy else 'critical',
+                'message': 'Database connection successful' if database_healthy else 'Database connection failed'
+            }
+            
+            # API endpoints health
+            api_healthy = True
+            try:
+                response = requests.get('http://localhost:5000/api/status', timeout=5)
+                api_healthy = response.status_code == 200
+            except:
+                api_healthy = False
+            
+            health_status['checks']['api_endpoints'] = {
+                'status': 'healthy' if api_healthy else 'critical',
+                'message': 'API endpoints are responsive' if api_healthy else 'API endpoints are not responding'
             }
             
             # Container health
@@ -155,18 +263,10 @@ class MonitoringService:
             running_containers = [c for c in containers if c['status'] == 'running']
             
             health_status['checks']['containers'] = {
-                'status': 'healthy' if len(running_containers) > 0 else 'critical',
+                'status': 'healthy' if len(running_containers) > 0 else 'warning',
+                'message': f"{len(running_containers)} of {len(containers)} containers running",
                 'total_containers': len(containers),
-                'running_containers': len(running_containers),
-                'containers': containers
-            }
-            
-            # Application health (simulate)
-            health_status['checks']['application'] = {
-                'status': 'healthy',
-                'web_server': 'running',
-                'database': 'connected',
-                'api_endpoints': 'responsive'
+                'running_containers': len(running_containers)
             }
             
             # Determine overall status
@@ -186,7 +286,14 @@ class MonitoringService:
             return {
                 'timestamp': datetime.now().isoformat(),
                 'overall_status': 'critical',
-                'error': str(e)
+                'error': str(e),
+                'checks': {
+                    'system': {'status': 'critical', 'message': f'Health check failed: {str(e)}'},
+                    'web_server': {'status': 'critical', 'message': 'Unable to check web server'},
+                    'database': {'status': 'critical', 'message': 'Unable to check database'},
+                    'api_endpoints': {'status': 'critical', 'message': 'Unable to check API endpoints'},
+                    'containers': {'status': 'critical', 'message': 'Unable to check containers'}
+                }
             }
     
     def get_recent_logs(self, log_type: str = 'monitoring', limit: int = 100) -> List[Dict[str, Any]]:
@@ -217,106 +324,71 @@ class MonitoringService:
             return []
     
     def _save_monitoring_log(self, stats: Dict[str, Any]):
-        """Save monitoring stats to log file"""
+        """Save monitoring stats to database and log file"""
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_file = os.path.join(self.logs_dir, f"stats_{timestamp}.json")
+            # Save to database if available
+            if self.db:
+                metrics_data = {
+                    'cpu_usage': stats['cpu']['percent'],
+                    'memory_usage': stats['memory']['percent'],
+                    'disk_usage': stats['disk']['percent'],
+                    'network_io': stats['network'],
+                    'active_containers': len(self.get_container_stats())
+                }
+                self.db.save_system_metrics(metrics_data)
             
-            with open(log_file, 'w') as f:
-                json.dump(stats, f, indent=2)
-                
+            # Also save to log file as backup
+            log_file = os.path.join(self.logs_dir, f"monitoring_{datetime.now().strftime('%Y%m%d')}.log")
+            with open(log_file, 'a') as f:
+                f.write(json.dumps(stats) + '\n')
         except Exception as e:
             logger.error(f"Error saving monitoring log: {e}")
     
     def _save_health_check_log(self, health_status: Dict[str, Any]):
-        """Save health check results to log file"""
+        """Save health check results to database and log file"""
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_file = os.path.join(self.health_logs_dir, f"health_{timestamp}.json")
+            # Save to database if available
+            if self.db:
+                self.db.save_health_check(health_status)
             
-            with open(log_file, 'w') as f:
-                json.dump(health_status, f, indent=2)
-                
+            # Also save to log file as backup
+            log_file = os.path.join(self.health_logs_dir, f"health_{datetime.now().strftime('%Y%m%d')}.log")
+            with open(log_file, 'a') as f:
+                f.write(json.dumps(health_status) + '\n')
         except Exception as e:
             logger.error(f"Error saving health check log: {e}")
     
     def get_deployment_metrics(self):
-        """Analyze deployment logs and return metrics"""
+        """Get deployment metrics from database"""
         try:
-            # Read deployment logs and calculate metrics
-            total_deployments = 0
-            successful_deployments = 0
-            
-            # Simulate reading deployment logs
-            # In a real implementation, this would read from actual log files
-            deployment_files = os.listdir(self.deployment_logs_dir)
-            total_deployments = len(deployment_files)
-            
-            # Simulate success rate calculation
-            successful_deployments = int(total_deployments * 0.85)  # 85% success rate
-            
-            success_rate = (successful_deployments / total_deployments * 100) if total_deployments > 0 else 0
-            
-            return {
-                'total_deployments': total_deployments,
-                'successful_deployments': successful_deployments,
-                'failed_deployments': total_deployments - successful_deployments,
-                'success_rate': round(success_rate, 2),
-                'last_updated': datetime.now().isoformat()
-            }
+            if self.db:
+                # Get metrics from database
+                metrics = self.db.get_deployment_metrics()
+                metrics['last_updated'] = datetime.now().isoformat()
+                return metrics
+            else:
+                # Fallback to simulated data if database is not available
+                return {
+                    'total_deployments': 5,
+                    'successful_deployments': 4,
+                    'failed_deployments': 1,
+                    'success_rate': 80.0,
+                    'recent_deployments': [],
+                    'last_updated': datetime.now().isoformat()
+                }
             
         except Exception as e:
-            print(f"Error getting deployment metrics: {e}")
+            logger.error(f"Error getting deployment metrics: {e}")
             return {
                 'total_deployments': 0,
                 'successful_deployments': 0,
                 'failed_deployments': 0,
                 'success_rate': 0,
+                'recent_deployments': [],
                 'last_updated': datetime.now().isoformat()
             }
     
-    def get_container_stats(self):
-        """Get container statistics"""
-        try:
-            # Simulate Docker container stats
-            containers = [
-                {
-                    'id': 'abc123def456',
-                    'name': 'web-app',
-                    'image': 'my-app:latest',
-                    'status': 'running',
-                    'cpu_usage': '15.2%',
-                    'memory_usage': '256MB / 512MB',
-                    'network_io': '1.2MB / 850KB',
-                    'created': '2024-01-15T10:30:00Z'
-                },
-                {
-                    'id': 'def456ghi789',
-                    'name': 'nginx-proxy',
-                    'image': 'nginx:latest',
-                    'status': 'running',
-                    'cpu_usage': '5.1%',
-                    'memory_usage': '64MB / 128MB',
-                    'network_io': '2.1MB / 1.5MB',
-                    'created': '2024-01-15T09:15:00Z'
-                },
-                {
-                    'id': 'ghi789jkl012',
-                    'name': 'database',
-                    'image': 'postgres:13',
-                    'status': 'stopped',
-                    'cpu_usage': '0%',
-                    'memory_usage': '0MB / 1GB',
-                    'network_io': '0B / 0B',
-                    'created': '2024-01-15T08:00:00Z'
-                }
-            ]
-            
-            return containers
-            
-        except Exception as e:
-            print(f"Error getting container stats: {e}")
-            return []
+
     
     def get_detailed_system_info(self):
         """Get detailed system information"""
