@@ -26,7 +26,13 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 deployment_service = DeploymentService()
 monitoring_service = MonitoringService()
 health_service = HealthService()
-database_service = DatabaseService()
+
+# Initialize database service (optional for testing)
+try:
+    database_service = DatabaseService()
+except ValueError as e:
+    print(f"Info: Database service not available: {e}")
+    database_service = None
 
 # Main routes
 @main_bp.route('/')
@@ -100,7 +106,7 @@ def status():
         system_stats = monitoring_service.get_system_stats()
         
         # Get deployment metrics from database
-        deployment_metrics = database_service.get_deployment_metrics()
+        deployment_metrics = database_service.get_deployment_metrics() if database_service else {}
         
         # Get container stats
         container_stats = monitoring_service.get_container_stats()
@@ -195,10 +201,10 @@ def deployment_metrics():
     """Get deployment metrics for dashboard"""
     try:
         # Get metrics from database
-        metrics = database_service.get_deployment_metrics()
+        metrics = database_service.get_deployment_metrics() if database_service else {}
         
         # Add recent deployments
-        recent_deployments = database_service.get_deployments(limit=5)
+        recent_deployments = database_service.get_deployments(limit=5) if database_service else []
         metrics['recent_deployments'] = recent_deployments
         metrics['last_updated'] = datetime.now().isoformat()
         
@@ -229,7 +235,7 @@ def recent_deployments():
     """Get recent deployments for dashboard"""
     try:
         # Get recent deployments from database
-        deployments = database_service.get_deployments(limit=10)
+        deployments = database_service.get_deployments(limit=10) if database_service else []
         
         return jsonify(deployments)
         

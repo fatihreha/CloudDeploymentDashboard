@@ -29,7 +29,7 @@ class RealtimeService:
             from app.services.database_service import DatabaseService
             self.db = DatabaseService()
         except Exception as e:
-            logger.warning(f"Database service not available: {e}")
+            logger.info(f"Database service not available: {e}")
             self.db = None
         
         # Register Socket.IO event handlers

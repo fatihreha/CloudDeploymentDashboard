@@ -7,9 +7,13 @@ from flask import Flask
 from flask_socketio import SocketIO
 from flask_cors import CORS
 import os
+from dotenv import load_dotenv
 
 def create_app():
     """Create and configure the Flask application"""
+    # Load environment variables
+    load_dotenv()
+    
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     
