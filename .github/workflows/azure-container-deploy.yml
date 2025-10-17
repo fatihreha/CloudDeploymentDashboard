@@ -7,6 +7,10 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AZURE_WEBAPP_NAME: cloud-deployment-dashboard
   CONTAINER_REGISTRY: clouddeploymentdashboard.azurecr.io
@@ -28,7 +32,9 @@ jobs:
     - name: 🔐 Azure Login
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: 🏷️ Extract Metadata
       id: meta
@@ -81,7 +87,9 @@ jobs:
     - name: 🔐 Azure Login
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: 🚀 Deploy to Azure App Service
       uses: azure/webapps-deploy@v2
@@ -170,7 +178,9 @@ jobs:
     - name: 🔐 Azure Login
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: 🚀 Deploy to Staging Slot
       uses: azure/webapps-deploy@v2
