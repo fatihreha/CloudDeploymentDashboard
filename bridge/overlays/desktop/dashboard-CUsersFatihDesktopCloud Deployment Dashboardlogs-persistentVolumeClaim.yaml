@@ -1,9 +1,0 @@
-#! dashboard-C:\Users\Fatih\Desktop\Cloud Deployment Dashboard\logs-persistentVolumeClaim.yaml
-# Generated code, do not edit
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-    name: dashboard-c--users-fatih-desktop-cloud-deployment-dashboard-logs
-    namespace: clouddeploymentdashboard
-spec:
-    storageClassName: "hostpath" # see docker/desktop-storage-provisioner

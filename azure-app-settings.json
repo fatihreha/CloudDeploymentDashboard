@@ -1,0 +1,38 @@
+[
+  {
+    "name": "FLASK_ENV",
+    "value": "production"
+  },
+  {
+    "name": "SECRET_KEY",
+    "value": "azure-production-secret-key-12345"
+  },
+  {
+    "name": "DEBUG",
+    "value": "False"
+  },
+  {
+    "name": "PORT",
+    "value": "8000"
+  },
+  {
+    "name": "WEBSITES_PORT",
+    "value": "8000"
+  },
+  {
+    "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+    "value": "true"
+  },
+  {
+    "name": "ENABLE_ORYX_BUILD",
+    "value": "true"
+  },
+  {
+    "name": "APP_NAME",
+    "value": "Cloud Deployment Dashboard"
+  },
+  {
+    "name": "LOG_LEVEL",
+    "value": "INFO"
+  }
+]

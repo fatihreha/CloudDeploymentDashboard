@@ -1,0 +1,80 @@
+apiVersion: apps/v1alpha1
+kind: ContainerApp
+metadata:
+  name: cloud-deployment-dashboard
+  namespace: default
+spec:
+  # Container configuration
+  containers:
+  - name: dashboard
+    image: clouddeploymentdashboard:latest
+    ports:
+    - containerPort: 8000
+      protocol: TCP
+    env:
+    - name: PORT
+      value: "8000"
+    - name: FLASK_ENV
+      value: "production"
+    - name: SUPABASE_URL
+      secretRef:
+        name: supabase-secrets
+        key: url
+    - name: SUPABASE_ANON_KEY
+      secretRef:
+        name: supabase-secrets
+        key: anon-key
+    - name: SUPABASE_SERVICE_KEY
+      secretRef:
+        name: supabase-secrets
+        key: service-key
+    - name: DATABASE_URL
+      secretRef:
+        name: database-secrets
+        key: connection-string
+    - name: SECRET_KEY
+      secretRef:
+        name: app-secrets
+        key: secret-key
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "0.25"
+      limits:
+        memory: "512Mi"
+        cpu: "0.5"
+    
+  # Scaling configuration
+  scale:
+    minReplicas: 1
+    maxReplicas: 10
+    rules:
+    - name: http-scaling
+      http:
+        metadata:
+          concurrentRequests: "30"
+    - name: cpu-scaling
+      custom:
+        type: cpu
+        metadata:
+          type: Utilization
+          value: "70"
+  
+  # Ingress configuration
+  ingress:
+    external: true
+    targetPort: 8000
+    traffic:
+    - weight: 100
+      latestRevision: true
+    
+  # Configuration for Azure Container Apps
+  configuration:
+    activeRevisionsMode: single
+    ingress:
+      external: true
+      targetPort: 8000
+      allowInsecure: false
+      traffic:
+      - weight: 100
+        latestRevision: true

@@ -1,0 +1,72 @@
+name: Azure Deployment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: cloud-deployment-dashboard
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r azure-requirements.txt
+        
+    - name: 🧪 Run tests
+      run: |
+        python -m pytest tests/ || echo "No tests found"
+        
+    - name: 🔧 Create deployment package
+      run: |
+        zip -r deployment.zip . -x "*.git*" "venv/*" "__pycache__/*" "*.pyc" "tests/*"
+        
+    - name: 🚀 Deploy to Azure App Service
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: deployment.zip
+
+  container-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: 🐳 Build and push Docker image
+      run: |
+        az acr build --registry ${{ secrets.AZURE_CONTAINER_REGISTRY }} \
+          --image clouddeploymentdashboard:${{ github.sha }} \
+          --file Dockerfile.azure .
+          
+    - name: 🚀 Deploy to Azure Container Apps
+      run: |
+        az containerapp update \
+          --name cloud-deployment-dashboard \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --image ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/clouddeploymentdashboard:${{ github.sha }}

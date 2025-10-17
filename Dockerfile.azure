@@ -1,0 +1,69 @@
+# Azure App Service Container Optimized Dockerfile
+# Cloud Deployment Dashboard - Production Ready
+# Multi-stage build for optimized image size
+
+# Build stage
+FROM python:3.9-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install dependencies
+COPY azure-requirements.txt .
+RUN pip install --no-cache-dir --user -r azure-requirements.txt
+
+# Production stage
+FROM python:3.9-slim
+
+# Set environment variables for Azure App Service
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_ENV=production \
+    PORT=8000 \
+    WEBSITES_PORT=8000 \
+    WEBSITES_CONTAINER_START_TIME_LIMIT=1800
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy Python packages from builder stage
+COPY --from=builder /root/.local /root/.local
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application code
+COPY . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p logs/deployments logs/monitoring logs/health \
+    && chmod -R 755 logs
+
+# Create non-root user for security (Azure App Service compatible)
+RUN useradd --create-home --shell /bin/bash --uid 1000 appuser \
+    && chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port (Azure App Service will use PORT env var)
+EXPOSE 8000
+
+# Health check optimized for Azure
+HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health-check || exit 1
+
+# Azure App Service startup command
+# Using gunicorn with eventlet for WebSocket support
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "eventlet", "--worker-connections", "1000", "--timeout", "120", "--keep-alive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "startup:app"]

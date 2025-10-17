@@ -158,70 +158,45 @@ function initializeSocketIO() {
             }
         });
         
+        // Real-time deployment updates
+        socket.on('recent_deployments', function(data) {
+            console.log('Received recent deployments update:', data);
+            updateRecentDeployments(data.data);
+        });
+        
+        // New log entries
+        socket.on('new_log', function(data) {
+            console.log('Received new log entry:', data);
+            appendLogEntry(data);
+        });
+        
+        // Notifications
+        socket.on('notification', function(data) {
+            console.log('Received notification:', data);
+            showNotification(data.message, data.severity, data.title);
+        });
+        
+        // Connection error handling
+        socket.on('connect_error', function(error) {
+            console.error('Socket.IO connection error:', error);
+            showNotification('Connection error occurred', 'error');
+        });
+        
+        socket.on('reconnect', function(attemptNumber) {
+            console.log('Reconnected to server after', attemptNumber, 'attempts');
+            showNotification('Reconnected to server', 'success');
+        });
+        
+        socket.on('reconnect_error', function(error) {
+            console.error('Socket.IO reconnection error:', error);
+            showNotification('Reconnection failed', 'error');
+        });
+        
     } catch (error) {
         console.error('Error initializing Socket.IO:', error);
         showNotification('Failed to initialize real-time connection', 'error');
         updateConnectionStatus('error');
-     }
-}
-    
-    // Real-time deployment updates
-    socket.on('recent_deployments', function(data) {
-        console.log('Received recent deployments update:', data);
-        updateRecentDeployments(data.data);
-    });
-    
-    // Container statistics updates
-    socket.on('container_stats', function(data) {
-        console.log('Received container stats update:', data);
-        updateContainerStats(data.data);
-    });
-    
-    // Real-time log streaming
-    socket.on('deployment_logs', function(data) {
-        console.log('Received deployment logs:', data);
-        displayDeploymentLogs(data);
-    });
-    
-    // New log entries
-    socket.on('new_log', function(data) {
-        console.log('Received new log entry:', data);
-        appendLogEntry(data);
-    });
-    
-    // Deployment status updates
-    socket.on('deployment_status_update', function(data) {
-        console.log('Received deployment status update:', data);
-        updateDeploymentStatusDisplay(data);
-    });
-    
-    // Health check results
-    socket.on('health_check_result', function(data) {
-        console.log('Received health check result:', data);
-        updateHealthCheckResults(data.data);
-    });
-    
-    // Notifications
-    socket.on('notification', function(data) {
-        console.log('Received notification:', data);
-        showNotification(data.message, data.severity, data.title);
-    });
-    
-    // Connection error handling
-    socket.on('connect_error', function(error) {
-        console.error('Socket.IO connection error:', error);
-        showNotification('Connection error occurred', 'error');
-    });
-    
-    socket.on('reconnect', function(attemptNumber) {
-        console.log('Reconnected to server after', attemptNumber, 'attempts');
-        showNotification('Reconnected to server', 'success');
-    });
-    
-    socket.on('reconnect_error', function(error) {
-        console.error('Socket.IO reconnection error:', error);
-        showNotification('Reconnection failed', 'error');
-    });
+    }
 }
 
 // Update connection status indicator

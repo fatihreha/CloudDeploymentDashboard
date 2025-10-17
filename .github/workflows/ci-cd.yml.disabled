@@ -1,0 +1,223 @@
+name: GCP Cloud Deployment Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  REGISTRY: gcr.io
+  IMAGE_NAME: cloud-deployment-dashboard
+
+jobs:
+  # Code Quality and Testing
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Python syntax check
+      run: |
+        python -m py_compile app.py
+        find app -name "*.py" -exec python -m py_compile {} \;
+    
+    - name: Basic import test
+      run: |
+        python -c "import app; print('✅ App imports successfully')"
+    
+    - name: Health check endpoint test
+      run: |
+        python -c "
+        import sys
+        sys.path.append('.')
+        from app import create_app
+        app, socketio = create_app()
+        with app.test_client() as client:
+            response = client.get('/health')
+            print(f'Health endpoint status: {response.status_code}')
+            if response.status_code == 200:
+                print('✅ Health endpoint working')
+            else:
+                print('❌ Health endpoint failed')
+                sys.exit(1)
+        "
+
+  # Security Scanning (Optional)
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    continue-on-error: true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+      continue-on-error: true
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+      continue-on-error: true
+
+  # Build and Deploy to Google Cloud Platform
+  deploy-gcp:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    env:
+      REGISTRY: gcr.io
+      IMAGE_NAME: cloud-deployment-dashboard
+      GOOGLE_CLOUD_PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+      GOOGLE_CLOUD_SA_KEY: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        service_account_key: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+        project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+        export_default_credentials: true
+    
+    - name: Configure Docker for GCR
+      run: |
+        gcloud auth configure-docker gcr.io
+    
+    - name: Build Docker image
+      run: |
+        docker build -t $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME:${{ github.sha }} .
+        docker build -t $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME:latest .
+    
+    - name: Push Docker image to GCR
+      run: |
+        docker push $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME:${{ github.sha }}
+        docker push $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME:latest
+    
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy $IMAGE_NAME \
+          --image $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME:${{ github.sha }} \
+          --platform managed \
+          --region us-central1 \
+          --allow-unauthenticated \
+          --set-env-vars="SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+          --memory=512Mi \
+          --cpu=1 \
+          --max-instances=10 \
+          --timeout=300
+    
+    - name: Get Cloud Run URL
+      id: get-url
+      run: |
+        URL=$(gcloud run services describe $IMAGE_NAME --platform managed --region us-central1 --format 'value(status.url)')
+        echo "url=$URL" >> $GITHUB_OUTPUT
+        echo "GCP_APP_URL=$URL" >> $GITHUB_ENV
+    
+    - name: Health Check
+      run: |
+        sleep 30
+        response=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.url }}/health)
+        if [ $response -eq 200 ]; then
+          echo "✅ Health check passed"
+        else
+          echo "❌ Health check failed with status: $response"
+          exit 1
+        fi
+    
+    - name: Send Telegram Success Notification
+      if: success() && env.TELEGRAM_BOT_TOKEN != ''
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+          -d chat_id="$TELEGRAM_CHAT_ID" \
+          -d text="🚀 *GCP Deployment Successful!*%0A%0A📦 *Project:* Cloud Deployment Dashboard%0A🌐 *Platform:* Google Cloud Platform%0A🔗 *URL:* ${{ steps.get-url.outputs.url }}%0A📝 *Commit:* ${{ github.sha }}%0A👤 *Author:* ${{ github.actor }}%0A⏰ *Time:* $(date)%0A%0A✅ Health check passed!" \
+          -d parse_mode="Markdown"
+      continue-on-error: true
+    
+    - name: Send Telegram Failure Notification
+      if: failure() && env.TELEGRAM_BOT_TOKEN != ''
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+          -d chat_id="$TELEGRAM_CHAT_ID" \
+          -d text="❌ *GCP Deployment Failed!*%0A%0A📦 *Project:* Cloud Deployment Dashboard%0A🌐 *Platform:* Google Cloud Platform%0A📝 *Commit:* ${{ github.sha }}%0A👤 *Author:* ${{ github.actor }}%0A⏰ *Time:* $(date)%0A%0A🔍 Check GitHub Actions for details." \
+          -d parse_mode="Markdown"
+      continue-on-error: true
+
+  # Cleanup old images and artifacts
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-gcp]
+    if: always() && needs.deploy-gcp.result == 'success'
+    env:
+      REGISTRY: gcr.io
+      IMAGE_NAME: cloud-deployment-dashboard
+      GOOGLE_CLOUD_PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+      GOOGLE_CLOUD_SA_KEY: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        service_account_key: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+        project_id: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+        export_default_credentials: true
+    
+    - name: Cleanup old Docker images
+      run: |
+        echo "🧹 Cleaning up old Docker images..."
+        # Keep only the last 5 images
+        gcloud container images list-tags $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME \
+          --limit=999999 --sort-by=TIMESTAMP \
+          --format="get(digest)" | tail -n +6 | \
+          xargs -I {} gcloud container images delete $REGISTRY/$GOOGLE_CLOUD_PROJECT_ID/$IMAGE_NAME@{} --quiet || true
+    
+    - name: Cleanup workflow artifacts
+      run: |
+        echo "🧹 Cleanup completed - no artifacts to remove"
