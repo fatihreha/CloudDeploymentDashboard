@@ -73,10 +73,7 @@ jobs:
   deploy-to-azure:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 
-'
-refs/heads/main
-'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     environment: production
     
