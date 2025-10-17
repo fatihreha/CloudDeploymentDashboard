@@ -198,6 +198,14 @@ node_modules/
 # - docker-compose --profile monitoring up -d (Monitoring ile birlikte)
 # - curl http://localhost:5000/api/health-check (Health check)
 # - curl http://localhost:5000/api/status (Sistem durumu)
+
+# Interview and development files
+INTERVIEW_*.md
+DEMO_SCRIPT.md
+TECHNICAL_QUESTIONS.md
+*.msi
+azure-simple-deploy.ps1
+azure-container-deployment.ps1
 #
 # SUPABASE ENVIRONMENT VARIABLES:
 # - SUPABASE_URL: Supabase project URL'i
