@@ -36,49 +36,58 @@ graph TD
 
 ## 2. Teknoloji Açıklaması
 
-- **Frontend**: Flask@2.3 + Bootstrap@5.3 + Jinja2 templates
-- **Backend**: Python@3.11 + Flask + subprocess (bash script execution)
-- **Containerization**: Docker + Docker Compose
-- **Automation**: Bash scripting + Python subprocess
-- **CI/CD**: GitHub Actions
-- **Cloud**: Render.com / Fly.io (deployment target)
+* **Frontend**: Flask\@2.3 + Bootstrap\@5.3 + Jinja2 templates
+
+* **Backend**: Python\@3.11 + Flask + subprocess (bash script execution)
+
+* **Containerization**: Docker + Docker Compose
+
+* **Automation**: Bash scripting + Python subprocess
+
+* **CI/CD**: GitHub Actions
+
+* **Cloud**: Render.com / Fly.io (deployment target)
 
 ## 3. Route Tanımları
 
-| Route | Amaç |
-|-------|------|
-| / | Ana dashboard sayfası, deployment kontrolü ve sistem durumu |
-| /deploy | Deployment işlemini başlatır, real-time progress gösterir |
-| /monitoring | Container durumu, loglar ve sistem metrikleri |
-| /health | Health check endpoint'leri ve connectivity testleri |
-| /api/deploy | AJAX deployment trigger endpoint |
-| /api/status | Container ve sistem durumu JSON API |
-| /api/logs | Real-time log streaming endpoint |
-| /api/health-check | Health check sonuçları JSON API |
+| Route             | Amaç                                                        |
+| ----------------- | ----------------------------------------------------------- |
+| /                 | Ana dashboard sayfası, deployment kontrolü ve sistem durumu |
+| /deploy           | Deployment işlemini başlatır, real-time progress gösterir   |
+| /monitoring       | Container durumu, loglar ve sistem metrikleri               |
+| /health           | Health check endpoint'leri ve connectivity testleri         |
+| /api/deploy       | AJAX deployment trigger endpoint                            |
+| /api/status       | Container ve sistem durumu JSON API                         |
+| /api/logs         | Real-time log streaming endpoint                            |
+| /api/health-check | Health check sonuçları JSON API                             |
 
 ## 4. API Tanımları
 
 ### 4.1 Core API
 
 **Deployment işlemi başlatma**
+
 ```
 POST /api/deploy
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| action | string | true | Deploy action type: "build", "run", "restart" |
-| image_name | string | false | Docker image name (default: "sufle-demo") |
+
+| Param Name  | Param Type | isRequired | Description                                   |
+| ----------- | ---------- | ---------- | --------------------------------------------- |
+| action      | string     | true       | Deploy action type: "build", "run", "restart" |
+| image\_name | string     | false      | Docker image name (default: "sufle-demo")     |
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| status | boolean | Deployment başlatma durumu |
-| job_id | string | Deployment job identifier |
-| message | string | İşlem durumu mesajı |
+
+| Param Name | Param Type | Description                |
+| ---------- | ---------- | -------------------------- |
+| status     | boolean    | Deployment başlatma durumu |
+| job\_id    | string     | Deployment job identifier  |
+| message    | string     | İşlem durumu mesajı        |
 
 Example:
+
 ```json
 {
   "action": "build",
@@ -87,38 +96,44 @@ Example:
 ```
 
 **Sistem durumu sorgulama**
+
 ```
 GET /api/status
 ```
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| containers | array | Running container listesi |
-| last_deployment | object | Son deployment bilgileri |
-| system_health | object | Sistem sağlık durumu |
+
+| Param Name       | Param Type | Description               |
+| ---------------- | ---------- | ------------------------- |
+| containers       | array      | Running container listesi |
+| last\_deployment | object     | Son deployment bilgileri  |
+| system\_health   | object     | Sistem sağlık durumu      |
 
 **Log streaming**
+
 ```
 GET /api/logs?container_id={id}&lines={count}
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| container_id | string | false | Specific container ID |
-| lines | integer | false | Log satır sayısı (default: 100) |
+
+| Param Name    | Param Type | isRequired | Description                     |
+| ------------- | ---------- | ---------- | ------------------------------- |
+| container\_id | string     | false      | Specific container ID           |
+| lines         | integer    | false      | Log satır sayısı (default: 100) |
 
 **Health check**
+
 ```
 POST /api/health-check
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| endpoint | string | true | Test edilecek endpoint URL |
-| method | string | false | HTTP method (default: GET) |
+
+| Param Name | Param Type | isRequired | Description                |
+| ---------- | ---------- | ---------- | -------------------------- |
+| endpoint   | string     | true       | Test edilecek endpoint URL |
+| method     | string     | false      | HTTP method (default: GET) |
 
 ## 5. Server Mimari Diyagramı
 
@@ -210,6 +225,7 @@ erDiagram
 ### 6.2 Veri Tanım Dili
 
 **Log dosyası yapısı**
+
 ```bash
 # Log directory structure
 mkdir -p logs/deployments
@@ -227,6 +243,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') [HEALTH] ${ENDPOINT} - Status: ${STATUS_CODE}
 ```
 
 **Docker Compose yapılandırması**
+
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -248,6 +265,7 @@ services:
 ```
 
 **Bash script konfigürasyonu**
+
 ```bash
 # deploy.sh configuration
 #!/bin/bash
@@ -264,3 +282,4 @@ mkdir -p ${LOG_DIR}/deployments
 mkdir -p ${LOG_DIR}/containers
 mkdir -p ${LOG_DIR}/health-checks
 ```
+
