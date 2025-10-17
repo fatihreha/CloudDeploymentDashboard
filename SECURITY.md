@@ -54,8 +54,8 @@ When creating example files (like `.env.example`), use generic placeholders that
 #### ✅ GOOD Placeholder Formats:
 ```
 # Database connections
-MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/DATABASE_NAME
-DATABASE_URL=postgresql://USERNAME:PASSWORD@HOST:PORT/DATABASE_NAME
+MONGODB_URI=mongodb+srv://[USERNAME]:[PASSWORD]@[CLUSTER].mongodb.net/[DATABASE_NAME]
+DATABASE_URL=postgresql://[USERNAME]:[PASSWORD]@[HOST]:[PORT]/[DATABASE_NAME]
 
 # API Keys
 SUPABASE_ANON_KEY=SUPABASE_ANON_KEY_HERE
