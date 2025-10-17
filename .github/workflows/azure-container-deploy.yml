@@ -1,0 +1,186 @@
+name: 🐳 Azure App Service Container Deployment
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: cloud-deployment-dashboard
+  CONTAINER_REGISTRY: clouddeploymentdashboard.azurecr.io
+  IMAGE_NAME: dashboard-app
+  RESOURCE_GROUP: rg-cloud-deployment-dashboard
+
+jobs:
+  # Build and Push Container Image
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🏷️ Extract Metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🔧 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔑 Login to Azure Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.CONTAINER_REGISTRY }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: 🏗️ Build and Push Container Image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.azure
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: 📊 Image Security Scan
+      uses: azure/container-scan@v0
+      with:
+        image-name: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  # Deploy to Azure App Service
+  deploy-to-azure:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 
+'
+refs/heads/main
+'
+
+    environment: production
+    
+    steps:
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🚀 Deploy to Azure App Service
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        images: ${{ needs.build-and-push.outputs.image-tag }}
+
+    - name: 🔧 Configure App Settings
+      uses: azure/appservice-settings@v1
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-settings-json: |
+          [
+            {
+              "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+              "value": "false"
+            },
+            {
+              "name": "WEBSITES_PORT",
+              "value": "8000"
+            },
+            {
+              "name": "DOCKER_REGISTRY_SERVER_URL",
+              "value": "https://${{ env.CONTAINER_REGISTRY }}"
+            },
+            {
+              "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+              "value": "${{ secrets.ACR_USERNAME }}"
+            },
+            {
+              "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+              "value": "${{ secrets.ACR_PASSWORD }}"
+            },
+            {
+              "name": "FLASK_ENV",
+              "value": "production"
+            },
+            {
+              "name": "SUPABASE_URL",
+              "value": "${{ secrets.SUPABASE_URL }}"
+            },
+            {
+              "name": "SUPABASE_ANON_KEY",
+              "value": "${{ secrets.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "DATABASE_URL",
+              "value": "${{ secrets.DATABASE_URL }}"
+            }
+          ]
+
+    - name: ✅ Deployment Health Check
+      run: |
+        echo "🔍 Checking deployment health..."
+        sleep 60
+        
+        HEALTH_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health-check"
+        
+        for i in {1..10}; do
+          if curl -f "$HEALTH_URL"; then
+            echo "✅ Health check passed!"
+            break
+          else
+            echo "⏳ Attempt $i failed, retrying in 30s..."
+            sleep 30
+          fi
+        done
+
+    - name: 📝 Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **App Name:** ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image:** ${{ needs.build-and-push.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL:** https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployment Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+
+  # Staging Deployment (Optional)
+  deploy-to-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 
+'
+refs/heads/develop
+'
+
+    environment: staging
+    
+    steps:
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🚀 Deploy to Staging Slot
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        slot-name: staging
+        images: ${{ needs.build-and-push.outputs.image-tag }}
