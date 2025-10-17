@@ -2,9 +2,9 @@ name: 🐳 Azure App Service Container Deployment
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ master, main ]
   workflow_dispatch:
 
 env:
