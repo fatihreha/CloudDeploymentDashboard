@@ -1,0 +1,6 @@
+azure-production-secret-key-12345==>CHANGE-THIS-IN-PRODUCTION
+dev-secret-key-change-in-production==>CHANGE-THIS-IN-PRODUCTION
+azure-dev-key-change-in-production==>CHANGE-THIS-IN-PRODUCTION
+test-secret-key==>test-secret-key-for-testing-only
+dashboard_password==>CHANGE-THIS-PASSWORD
+admin==>CHANGE-THIS-PASSWORD
