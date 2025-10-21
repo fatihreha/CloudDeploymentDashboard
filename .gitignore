@@ -247,3 +247,46 @@ grafana_data/
 # Container volumes
 postgres_data/
 redis_data/
+
+# Exposed Keys and Credentials - Security Risk Files
+# These files contain exposed credentials that should not be committed
+azure-app-settings.json
+azure-container-app.yaml
+docker-compose.yml
+app/config/azure_config.py
+app/config.py
+tests/conftest.py
+
+# Environment files with potential secrets
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.test
+
+# Configuration files that may contain secrets
+config/secrets.json
+config/credentials.json
+config/azure-config.json
+config/supabase-config.json
+
+# Database connection strings and passwords
+init.sql
+supabase_schema.sql
+azure-database-setup.sql
+
+# Deployment scripts that may contain secrets
+scripts/deploy.sh
+scripts/health-check.sh
+azure-simple-deploy.ps1
+azure-container-deployment.ps1
+
+# Log files that may contain sensitive information
+logs/
+*.log
+
+# Temporary files that might contain secrets
+*.tmp
+*.temp
+*.bak
+*.backup
